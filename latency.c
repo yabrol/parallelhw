@@ -3,66 +3,54 @@
 #include <stdlib.h>
 #include <time.h>
 
-int N_TESTS = 1000000;
+#define N_TESTS 1000000
 
 int main(int argc, char** argv) {
-  // Initialize the MPI environment
-  MPI_Init(NULL, NULL);
-  // Find out rank, size
-  int world_rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-  int world_size;
-  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+	// Initialize the MPI environment
+	int sz,myid;
+	MPI_Init(&argc, &argv);
+	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+	MPI_Comm_size(MPI_COMM_WORLD, &sz);
 
-  // We are assuming at least 2 processes for this task
-  if (world_size < 2) {
-    fprintf(stderr, "World size must be greater than 1 for %s\n", argv[0]);
-    MPI_Abort(MPI_COMM_WORLD, 1); 
-  }
+	// Requires only 2 processes
+	if (sz !=  2) {
+		fprintf(stderr, "Size must be equal to 2 for this program\n");
+		MPI_Abort(MPI_COMM_WORLD, 1); 
+	}
   
 	MPI_Status status;
 	int i = N_TESTS;
-	double total_time;	
-	double average_time;
-	int rc2;
-	double t_send,t_received;
-	int rc;
-	double delta;
+	int sender_id = 0;
+	int receiver_id =1;
+	double total_time,average_time, t_send;
 	char msg='x';
-	//int packet_size = sizeof(msg);
 	while(i>0){
-			if (world_rank == 0) {
-				// If we are rank 0, set the number to -1 and send it to process 1
+			if (myid == 0) {
+				double t_received, delta;	
+				// time of sending the message
 				t_send = MPI_Wtime();
-				rc2 = MPI_Send(&msg, 1 , MPI_INT, 1, 0, MPI_COMM_WORLD);
-				if (rc2 != MPI_SUCCESS) {
-						 printf("Send error in task 0!\n");
-						 MPI_Abort(MPI_COMM_WORLD, rc2);
-						 exit(1);
-				}
-				else if(rc2 == MPI_SUCCESS){
-						MPI_Recv(&t_received,8, MPI_INT, 1, 0, MPI_COMM_WORLD,&status);
-						delta = t_received-t_send;
-						total_time += delta;
-				}
+				// send the message with a char
+				MPI_Send(&msg, 1 , MPI_CHAR, receiver_id, 0, MPI_COMM_WORLD);
+				// receive the acknowledgment containing the received time of receiver
+				MPI_Recv(&t_received,1, MPI_DOUBLE, receiver_id, 0, MPI_COMM_WORLD,&status);
+				//calculate the time difference
+				delta = t_received-t_send;
+				total_time += delta;
 			} 
-			else if (world_rank == 1) {
-				rc = MPI_Recv(&msg, 1 , MPI_INT, 0, 0, MPI_COMM_WORLD,&status);
-				if(rc ==MPI_SUCCESS){
-						t_received = MPI_Wtime();
-						MPI_Send(&t_received,8, MPI_INT, 0, 0, MPI_COMM_WORLD);
-				}
-				else if (rc != MPI_SUCCESS) {
-						 printf("Receive error in task 1!\n");
-						 MPI_Abort(MPI_COMM_WORLD, rc);
-						 exit(1);
-				}
+			else if (myid == 1) {
+				double t_received;
+				// Receive the message from sender
+				MPI_Recv(&msg, 1 , MPI_CHAR, sender_id, 0, MPI_COMM_WORLD,&status);
+				// note the received time
+				t_received = MPI_Wtime();
+				// send the time back to sender
+				MPI_Send(&t_received,1, MPI_DOUBLE, sender_id, 0, MPI_COMM_WORLD);
 			}
 			i--;
 	}
-	if(total_time){
+	if(myid == 0){
 		average_time = total_time/N_TESTS;
-		printf("Average Latency: %.11f\n",average_time);
+		printf("Average Latency: %.12f\n",average_time);
 	}
   MPI_Finalize();
 }
