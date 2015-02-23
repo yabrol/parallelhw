@@ -1,68 +1,77 @@
-#include <mpi.h>
 #include <stdio.h>
+#include <mpi.h>
 #include <stdlib.h>
-#include <time.h>
 
-int N_TESTS = 1000000;
+int main (int argc, char **argv)
+{
+	int sz, myid;
+	//initialize MPI
+	MPI_Init (&argc, &argv);
+	//get total number of processes
+	MPI_Comm_size (MPI_COMM_WORLD, &sz);
+	//get id of each process
+	MPI_Comm_rank (MPI_COMM_WORLD, &myid);
+	
+	int tests = 100;
+	int max_messages = 1000000;
+	int sender_id = 0;
+	int receiver_id = 1;
+	int n_messages=10000,step=100000;
+	
+	while(n_messages<max_messages){
+		double total_bandwidth=0;
 
-int main(int argc, char** argv) {
-  // Initialize the MPI environment
-  MPI_Init(NULL, NULL);
-  // Find out rank, size
-  int world_rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-  int world_size;
-  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
-
-  // We are assuming at least 2 processes for this task
-  if (world_size < 2) {
-    fprintf(stderr, "World size must be greater than 1 for %s\n", argv[0]);
-    MPI_Abort(MPI_COMM_WORLD, 1); 
-  }
-  
-	MPI_Status status;
-	int i = N_TESTS;
-	double total_time;	
-	double average_time;
-	int rc2;
-	double t_send,t_received;
-	int rc;
-	double delta;
-	char msg='x';
-	//int packet_size = sizeof(msg);
-	while(i>0){
-			if (world_rank == 0) {
-				// If we are rank 0, set the number to -1 and send it to process 1
-				t_send = MPI_Wtime();
-				rc2 = MPI_Send(&msg, 1 , MPI_INT, 1, 0, MPI_COMM_WORLD);
-				if (rc2 != MPI_SUCCESS) {
-						 printf("Send error in task 0!\n");
-						 MPI_Abort(MPI_COMM_WORLD, rc2);
-						 exit(1);
-				}
-				else if(rc2 == MPI_SUCCESS){
-						MPI_Recv(&t_received,8, MPI_INT, 1, 0, MPI_COMM_WORLD,&status);
-						delta = t_received-t_send;
-						total_time += delta;
-				}
-			} 
-			else if (world_rank == 1) {
-				rc = MPI_Recv(&msg, 1 , MPI_INT, 0, 0, MPI_COMM_WORLD,&status);
-				if(rc ==MPI_SUCCESS){
-						t_received = MPI_Wtime();
-						MPI_Send(&t_received,8, MPI_INT, 0, 0, MPI_COMM_WORLD);
-				}
-				else if (rc != MPI_SUCCESS) {
-						 printf("Receive error in task 1!\n");
-						 MPI_Abort(MPI_COMM_WORLD, rc);
-						 exit(1);
-				}
+		if(myid == sender_id){
+			int ack,test = tests;
+			int tag =0;
+			MPI_Status status;
+			// run tests for the given number of messages
+			// construct message as double to be able to store time
+			double *msg = (double *)malloc(n_messages * sizeof(double));
+			int i =0;
+			for(i=0;i<n_messages;i++){
+				msg[i] = i*1.0;
 			}
-			i--;
+			while(test>0){
+				// insert the current sending time
+				msg[0] = MPI_Wtime();
+				// send packet to receiver
+				MPI_Send(msg ,n_messages ,MPI_DOUBLE ,receiver_id , tag, MPI_COMM_WORLD);
+				// wait for acknowledgment from receiver
+				MPI_Recv(&ack, 1, MPI_INT, receiver_id, tag, MPI_COMM_WORLD, &status);
+
+				test--;
+			}
+			free(msg);
+		}
+		else if(myid == receiver_id){
+			int test = tests;
+			int ack,tag =0;
+			double time_received,delta;
+			double bandwidth=0;
+			double *msg = (double *)malloc(n_messages * sizeof(double));
+			MPI_Status status;
+			while(test >0){
+				// receive packets from sender
+				MPI_Recv(msg, n_messages, MPI_DOUBLE, sender_id, tag, MPI_COMM_WORLD, &status);
+				// get current time
+				time_received = MPI_Wtime();
+				// calculate the bandwidth using time difference and total size of the message
+				delta = time_received - msg[0];
+				bandwidth = (sizeof(double)* n_messages)/delta;
+				// add it to the total of bandwidths
+				total_bandwidth += bandwidth;
+				// send acknowledgment to sender
+				MPI_Send(&ack, 1, MPI_INT, sender_id, tag, MPI_COMM_WORLD);
+				test--;
+			}
+			printf("Average bandwidth: %f for %d messages and %d tests\n",(total_bandwidth/(tests*1024*1024)),n_messages,tests);
+			free(msg);
+		}
+
+		n_messages += step;
 	}
-	if(total_time){
-		average_time = total_time/N_TESTS;
-		printf("Average Latency: %.11f\n",average_time);
-	}
-  MPI_Finalize();
+
+	MPI_Finalize ();
+	exit (0);
 }
