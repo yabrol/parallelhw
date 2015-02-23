@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
 	double total_time,average_time, t_send;
 	char msg='x';
 	while(i>0){
-			if (myid == 0) {
+			if (myid == sender_id) {
 				double t_received, delta;	
 				// time of sending the message
 				t_send = MPI_Wtime();
@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
 				delta = t_received-t_send;
 				total_time += delta;
 			} 
-			else if (myid == 1) {
+			else if (myid == receiver_id) {
 				double t_received;
 				// Receive the message from sender
 				MPI_Recv(&msg, 1 , MPI_CHAR, sender_id, 0, MPI_COMM_WORLD,&status);
