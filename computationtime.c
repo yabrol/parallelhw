@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define ARRAY_LENGTH 1000000
+#define ARRAY_LENGTH 100000
 #define TAG_A 0
 #define TAG_B 1
 #define TAG_O 2
@@ -67,8 +67,8 @@ int main(int argc, char** argv) {
 			end_time = MPI_Wtime();
 
 			delta = end_time - start_time;
-			flops = (double)(2*ARRAY_LENGTH)/delta;
-			printf("FLOPS: %f, Product: %f\n",flops,runningSum);
+			flops = (double)(2*ARRAY_LENGTH+sz)/delta;
+			printf("%f,%f\n",flops,runningSum);
 			free(arrayA);
 			free(arrayB);
 		}
@@ -106,7 +106,7 @@ int main(int argc, char** argv) {
 		double product = dotProduct(arrayA,arrayB,ARRAY_LENGTH);
 		double end_time = MPI_Wtime();
 		double flops = (double)(2*ARRAY_LENGTH)/(end_time-start_time);
-		printf("FLOPS: %f, Product: %f\n",flops,product);
+		printf("%f, %f\n",flops,product);
 		free(arrayA);
 		free(arrayB);
 	}

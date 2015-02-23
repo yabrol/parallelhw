@@ -13,10 +13,10 @@ int main (int argc, char **argv)
 	MPI_Comm_rank (MPI_COMM_WORLD, &myid);
 	
 	int tests = 100;
-	int max_messages = 1000000;
+	int max_messages = 500000;
 	int sender_id = 0;
 	int receiver_id = 1;
-	int n_messages=10000,step=100000;
+	int n_messages=10000,step=5000;
 	
 	while(n_messages<max_messages){
 		double total_bandwidth=0;
@@ -65,7 +65,7 @@ int main (int argc, char **argv)
 				MPI_Send(&ack, 1, MPI_INT, sender_id, tag, MPI_COMM_WORLD);
 				test--;
 			}
-			printf("Average bandwidth: %f for %d messages and %d tests\n",(total_bandwidth/(tests*1024*1024)),n_messages,tests);
+			printf("%f,%d,%d\n",(total_bandwidth/(tests*1024*1024)),n_messages,tests);
 			free(msg);
 		}
 
