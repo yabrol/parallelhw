@@ -37,6 +37,7 @@ int main (int argc, char **argv)
 
 mw_work_t **create_work(int argc, char **argv){
 	mw_work_t **work;
+	printf("create work\n");
 	return work;
 }
 int process_results(int sz, mw_result_t *res){
