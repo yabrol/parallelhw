@@ -1,14 +1,7 @@
 #include "mw_api.h"
 #include "stdio.h"
 #include "mpi.h"
-
-struct userdef_work_t {
-	int t; 
-};
-
-struct userdef_result_t {
-   	int t;
-};
+#include "stdlib.h"
 
 mw_work_t **create_work(int argc, char **argv);
 int process_results(int sz, mw_result_t *res);
@@ -24,9 +17,8 @@ int main (int argc, char **argv)
   f.create = create_work;
   f.result = process_results;
   f.compute = do_work;
-  f.work_sz = sizeof (struct userdef_work_t);
-  f.res_sz = sizeof (struct userdef_result_t);
-
+  f.work_sz = 6;//sizeof (struct userdef_work_t);
+  f.res_sz = 8;//sizeof (struct userdef_result_t
   MW_Run (argc, argv, &f);
   testing();
   MPI_Finalize ();
@@ -36,7 +28,19 @@ int main (int argc, char **argv)
 }
 
 mw_work_t **create_work(int argc, char **argv){
-	mw_work_t **work;
+	int size = 11;
+	int i;
+	mw_work_t **work = (mw_work_t **)malloc(size * sizeof(mw_work_t *));
+	
+	for(i=0;i<size;i++){
+		work[i]=(mw_work_t *)malloc(size * sizeof(mw_work_t));
+	}
+	for (i=0;i<size;i++){
+		mw_work_t temp;
+        temp.t = 9;
+		work[i] = &temp;
+	}
+	
 	printf("create work\n");
 	return work;
 }
