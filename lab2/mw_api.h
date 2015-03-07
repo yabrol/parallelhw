@@ -1,5 +1,5 @@
-#ifndef mw_api_h
-#define mw_api_h
+//#ifndef mw_api_h
+//#define mw_api_h
 
 struct userdef_work_t; /* definition provided by user */
 struct userdef_result_t; /* definition provided by user */
@@ -7,7 +7,7 @@ typedef struct userdef_work_t mw_work_t;
 typedef struct userdef_result_t mw_result_t;
 
 struct mw_api_spec {
-   mw_work_t **(*create) (int argc, char **argv); 
+   mw_work_t *(*create) (int argc, char **argv); 
       /* create work: return a NULL-terminated list of work. Return NULL if it fails. */
 
    int (*result) (int sz, mw_result_t *res);      
@@ -23,4 +23,4 @@ struct mw_api_spec {
 void MW_Run (int argc, char **argv, struct mw_api_spec *f); /* run master-worker */
 void testing();
 
-#endif
+//#endif
