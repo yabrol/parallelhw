@@ -1,5 +1,5 @@
 #include <stdio.h>
-//#include <mpi.h>
+#include <mpi.h>
 #include <stdlib.h>
 #include "mw_api.h"
 
@@ -54,5 +54,3 @@ int main (int argc, char **argv)
   return 0;
 
 }
-
-
