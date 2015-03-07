@@ -1,49 +1,55 @@
-#include "mw_api.h"
 #include <stdio.h>
-#include <mpi.h>
+//#include <mpi.h>
 #include <stdlib.h>
+#include "mw_api.h"
 
-struct userdef_work_t {
+struct work_t {
 	int t; 
 };
 
-struct userdef_result_t {
+struct result_t {
    	int t;
 };
 
-mw_work_t* create_work(int argc, char **argv){
-	int size = 11;
-	int i;
-mw_work_t *temp2 = malloc(sizeof(mw_work_t));
-temp2->t=9;	
-	printf("create work\n");
-mw_work_t *temp3 = malloc(sizeof(mw_work_t));  
-temp3 = temp2;
-printf("%d \n",temp3->t); 	
-return temp2;
+work_unit** create_work(int argc, char **argv){
+	int size =10;
+	work_unit** t=(work_unit**)malloc(size*sizeof(work_unit*)); 
+int i=0;	
+for(i=0;i<size;i++){
+work_unit* temp = (work_unit*)malloc(sizeof(work_unit));
+temp->t = 9;
+t[i]=temp;
 }
-int process_results(int sz, mw_result_t *res){
-	int result;
-	return result;
+return t;
 }
-mw_result_t *do_work(mw_work_t *work){
-	mw_result_t *result;
-	return result;
+
+int process_results(int sz, result_unit *res){
+int result;
+result = res->t;
+printf("%d\n",result);
+return result;
 }
+
+result_unit* do_work(work_unit *work){
+result_unit* res = (result_unit *)malloc(sizeof(result_unit));
+res->t=work->t;
+return res;
+}
+
 int main (int argc, char **argv)
 {
   struct mw_api_spec f;
 
-  MPI_Init (&argc, &argv);
+  //MPI_Init (&argc, &argv);
 
   f.create = create_work;
-  f.result = process_results;
+  f.compile = process_results;
   f.compute = do_work;
-  f.work_sz = sizeof (mw_work_t);
-  f.res_sz = sizeof ( mw_result_t);
+  f.work_sz = sizeof (work_unit);
+  f.res_sz = sizeof (result_unit);
   MW_Run (argc, argv, &f);
   testing();
-  MPI_Finalize ();
+  //MPI_Finalize ();
   
   return 0;
 

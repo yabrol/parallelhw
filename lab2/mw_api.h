@@ -1,19 +1,19 @@
 //#ifndef mw_api_h
 //#define mw_api_h
 
-struct userdef_work_t; /* definition provided by user */
-struct userdef_result_t; /* definition provided by user */
-typedef struct userdef_work_t mw_work_t;
-typedef struct userdef_result_t mw_result_t;
+struct work_t; /* definition provided by user */
+struct result_t; /* definition provided by user */
+typedef struct work_t work_unit;
+typedef struct result_t result_unit;
 
 struct mw_api_spec {
-   mw_work_t *(*create) (int argc, char **argv); 
+   work_unit **(*create) (int argc, char **argv); 
       /* create work: return a NULL-terminated list of work. Return NULL if it fails. */
 
-   int (*result) (int sz, mw_result_t *res);      
+   int (*compile) (int sz, result_unit *res);      
       /* process result. Input is a collection of results, of size sz. Returns 1 on success, 0 on failure. */
 
-   mw_result_t *(*compute) (mw_work_t *work);    
+   result_unit *(*compute) (work_unit *work);
       /* compute, returning NULL if there is no result, non-NULL if there is a result to be returned. */
 
    int work_sz, res_sz; 
