@@ -5,13 +5,13 @@
 #include "mw_api.h"
 
 struct work_t {
-	unsigned long int numbers[8]; // pointer to array of numbers to check
-	int length; // length of the array
+	unsigned long int * numbers; // pointer to array of numbers to check
+	unsigned long length; // length of the array
 	unsigned long int num; // number for which the factors need to be calculated
 };
 
 struct result_t {
-   	unsigned long int factors[8]; // pointer to array of factors
+   	unsigned long int *factors; // pointer to array of factors
 	int length;
 };
 
@@ -42,12 +42,13 @@ work_unit** create_work(int argc, char **argv){
 	unsigned long int count =1;
 	for(i=0;i<size-1;i++){
 		work_unit* temp = (work_unit *)malloc(sizeof(work_unit));
-		//temp->numbers = (unsigned long *)malloc(unit_size*sizeof(unsigned long));
+		temp->numbers = (unsigned long *)malloc(unit_size*sizeof(unsigned long));
 		for(j=0;j<unit_size;j++){
 			temp->numbers[j] = count;
 			count++;
 		}
 		temp->num = num;
+		temp->length = unit_size;
 		t[i]=temp;
 	}
 	t[size-1]=NULL;
@@ -72,8 +73,9 @@ return result;
 
 result_unit* do_work(work_unit *work){
 	result_unit* res = (result_unit *)malloc(sizeof(result_unit));
+	res->factors = (unsigned long *)malloc(work->length*sizeof(unsigned long));
 	int i;
-	for(i=0;i<8;i++)
+	for(i=0;i<(work->length);i++)
 	{
 		res->factors[i] = work->numbers[i];
 		printf("%lu\n",res->factors[i]);

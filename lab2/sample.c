@@ -4,7 +4,7 @@
 #include "mw_api.h"
 
 struct work_t {
-	int* t; 
+	int t[10]; 
 };
 
 struct result_t {
