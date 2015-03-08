@@ -4,7 +4,7 @@
 #include "mw_api.h"
 
 struct work_t {
-	int t; 
+	int* t; 
 };
 
 struct result_t {
@@ -32,17 +32,19 @@ int process_results(int sz, result_unit *res){
 
 result_unit* do_work(work_unit *work){
 	result_unit* res = (result_unit *)malloc(sizeof(result_unit));
-	res->t=work->t;
+	//res->t=work->t;
+	int len;
+	len = sizeof(work->t);
+	res->t = sum(len,*work);
 	return res;
 }
 
-// Assume that a and b point to array with at least length elements. 
-// Assume that none of the intermediate values overflows a double. 
-double dotProduct(double *a, double *b, int length) {
+//sums the array
+int sum(int length, int *a) {
 	int index = 0;
-	double runningSum=0.0;
+	double runningSum=0;
 	for (index = 0; index < length; index++)
-	runningSum += a[index] * b[index];
+	runningSum += a[index];
 	return runningSum;
 }
 
