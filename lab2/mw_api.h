@@ -16,6 +16,8 @@ struct mw_api_spec {
    result_unit *(*compute) (work_unit *work);
       /* compute, returning NULL if there is no result, non-NULL if there is a result to be returned. */
 
+   unsigned char **(*serialize)(work_unit *work,unsigned long *size);
+   work_unit *(*deserialize)(unsigned char **serialized_work,unsigned long size);
    int work_sz, res_sz; 
       /* size in bytes of the work structure and result structure, needed to send/receive messages */
 };
