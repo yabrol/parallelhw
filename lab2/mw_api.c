@@ -9,6 +9,8 @@
 #define TAG_RESULT 1
 #define TAG_TERMINATE 99
 
+/****
+****/
 void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 	int sz, myid;
 	MPI_Comm_size(MPI_COMM_WORLD, &sz);
@@ -26,8 +28,8 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		int i=0;
 		start_time = MPI_Wtime();
 		while(work[i]!=NULL){
-			work_unit *chunk = (work_unit *)malloc(f->work_sz);
-			chunk = work[i];
+			//work_unit *chunk = (work_unit *)malloc(f->work_sz);
+			//chunk = work[i];
 			unsigned char *serialized_chunk = f->serialize(work[i],&size);
 			//printf("Serializing done %lu\n",(int)(*serialized_chunk));
 			MPI_Send(serialized_chunk, size, MPI_CHAR, wid, TAG_WORK, MPI_COMM_WORLD );
@@ -35,7 +37,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 			wid = 1 + (wid)%(sz-1);
 			i++;
 			free(serialized_chunk);
-			free(chunk);
+			//free(chunk);
 		}
 		n_chunks = i;
 		//printf("total_workers %d\n",sz-1);
@@ -44,7 +46,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		wid=0;
 		for(i=0;i<n_chunks;i++){
 			
-			result_unit *r = (result_unit *)malloc(f->res_sz);
+			result_unit *r;// = (result_unit *)malloc(f->res_sz);
 			wid = 1 + (wid)%(sz-1);
 			//printf("wait %d\n",wid);
 			int result_size;
@@ -83,7 +85,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 			// http://mpitutorial.com/tutorials/dynamic-receiving-with-mpi-probe-and-mpi-status/
 			MPI_Probe(MASTER_ID, MPI_ANY_TAG, MPI_COMM_WORLD, &status_size);
 			MPI_Get_count(&status_size, MPI_BYTE, &size);
-			w_work = (work_unit *)malloc(f->work_sz);
+			w_work = (work_unit *)malloc(size);
 			//printf("size message to receive%d\n",size);
 			unsigned char *serialized_work = (unsigned char *)malloc(sizeof(unsigned char)*size);
 			// Receive chunks of work

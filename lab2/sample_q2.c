@@ -9,7 +9,7 @@ struct work_t {
 	unsigned long first; // pointer to array of numbers to check
 	unsigned long end;
 	//unsigned long length; // length of the array
-	unsigned long num; // number for which the factors need to be calculated
+	mpz_t num; // number for which the factors need to be calculated
 };
 
 struct result_t {
@@ -17,7 +17,16 @@ struct result_t {
 	int length;
 };
 
+int size_of_mpz(mpz_t num){
+// https://gmplib.org/manual/Integer-Import-and-Export.html
+	int size = 1,nail=0;
+	int numb = 8*size - nail;
+        int count = (mpz_sizeinbase (num, 2) + numb-1) / numb;
+	return count;
+}
+
 unsigned char* serialize_result(result_unit *res,int *size){
+	//printf("serialize result\n");
 	unsigned char *serialized_result;
 	unsigned char *start;
 	unsigned long i,length;
@@ -64,25 +73,29 @@ result_unit* deserialize_result(unsigned char *serialized_result,int size){
 
 
 unsigned char* serialize_work(work_unit *work,int *size){
+	//printf("serializing\n");
 	unsigned char *serialized_work;
 	unsigned char *start;
 	// calculate the total size of work unit and allocate that much memory
 	unsigned long i,length;
-	length = 3*(sizeof(unsigned long)); // for length and num
+	length = 2*(sizeof(unsigned long)); // for length and num
+	// because we need the size before allocating memory
+	length += size_of_mpz(work->num);
 	*size = (int)length;
 	// allocate memory for char array
 	serialized_work  = (unsigned char *)malloc(sizeof(unsigned char)*length);
 	// copy memory piece by piece to the byte stream(char array)
 	start = serialized_work;
 	// copy length and num first and keep moving the pointer
-	memcpy(serialized_work,&(work->first),sizeof(unsigned long));
-	
+	memcpy(serialized_work,&(work->first),sizeof(unsigned long));	
 	// allocate memory for char array
 	serialized_work += sizeof(unsigned long);
 	
 	memcpy(serialized_work,&(work->end),sizeof(unsigned long));
 	serialized_work += sizeof(unsigned long);
-	memcpy(serialized_work,&(work->num),sizeof(unsigned long));
+	size_t s;
+	//memcpy(serialized_work,&(work->num),sizeof(unsigned long));
+	mpz_export(serialized_work,&s,1,1,1,0,(work->num));
 	// copy the number array
 	/*for(i=0;i<work->length;i++){
 		memcpy(serialized_work,&(work->numbers[i]),sizeof(unsigned long));
@@ -95,6 +108,7 @@ unsigned char* serialize_work(work_unit *work,int *size){
 }
 
 work_unit* deserialize_work(unsigned char *serialized_work,int size){
+	//printf("deserializing\n");
 	int i;
 	// create new work unit
 	work_unit *work = (work_unit *)malloc(sizeof(work_unit));
@@ -105,8 +119,11 @@ work_unit* deserialize_work(unsigned char *serialized_work,int size){
 	
 	memcpy(&(work->end),serialized_work,sizeof(unsigned long));
 	serialized_work += sizeof(unsigned long);
-	
-	memcpy(&(work->num),serialized_work,sizeof(unsigned long));
+	size_t mpz;
+	mpz = size - 2*(sizeof(unsigned long));
+	mpz_init(work->num);
+	mpz_import((work->num),mpz,1,1,1,0,serialized_work);
+	//memcpy(&(work->num),serialized_work,sizeof(unsigned long));
 	//serialized_work += sizeof(unsigned long);
 	// copy the number array
 	/*
@@ -115,6 +132,7 @@ work_unit* deserialize_work(unsigned char *serialized_work,int size){
 		serialized_work += sizeof(unsigned long);
 	}*/
 	// return the byte stream
+	//printf("finsihed deserializing\n");
 	return work;
 }
 
@@ -152,7 +170,8 @@ work_unit** create_work(int argc, char **argv){
 			count++;
 		}
 		temp->end = count;
-		temp->num = num;
+		mpz_init(temp->num);
+		mpz_init_set(temp->num, big_num);
 		//temp->length = unit_size;
 		t[i]=temp;
 	}
@@ -169,7 +188,7 @@ int process_results(int sz, result_unit **res){
 		//printf(" length in compile %d\n", res[i]->length );
 		for(j=0;j<(res[i]->length);j++){
 			result = res[i]->factors[j];
-		//	printf("Factors!! %lu\n",result);
+			//printf("Factors!! %lu\n",result);
 		}
 	}
 	//printf("%lu\n",result);
@@ -178,14 +197,20 @@ return 1;
 }
 
 result_unit* do_work(work_unit *work){
+	//printf("started work\n");
 	result_unit* res = (result_unit *)malloc(sizeof(result_unit));
 	res->factors = (unsigned long *)malloc(sizeof(unsigned long) * ((work->end)-(work->first)));
 	unsigned long i;
 	int j=0;
 	res->length = 0;
 	for(i=work->first;i<=(work->end);i++){
-		if((work->num)%(i) == 0){
-			//printf("Factor %lu\n",i);
+		mpz_t r;
+		mpz_init(r);
+		//printf("find mod\n");
+		mpz_mod_ui(r,work->num,i);
+		//printf(" found mod\n");
+		if( mpz_cmp_ui(r,0) == 0 ){
+	//		printf("Factor %lu\n",i);
 			res->factors[j++] = i;
 			//res->factors[j++] = (work->num)/i;
 			res->length+=1;
@@ -208,7 +233,7 @@ int main (int argc, char **argv)
   f.deserialize = deserialize_work;
   f.serialize_result = serialize_result;
   f.deserialize_result = deserialize_result;
-  f.work_sz = sizeof (work_unit);
+  f.work_sz = sizeof (work_unit) ;
   f.res_sz = sizeof (result_unit);
 
   //printf("Here\n");
