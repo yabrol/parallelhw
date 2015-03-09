@@ -17,8 +17,60 @@ struct result_t {
 	int length;
 };
 
+unsigned char* serialize_result(result_unit *res,int *size){
+	unsigned char *serialized_result;
+	unsigned char *start;
+	//unsigned char **temp = (unsigned char **)malloc(sizeof(unsigned char *));
+	// calculate the total size of work unit and allocate that much memory
+	unsigned long i,length;
+	length = (sizeof(int)); // for length and num
+	length += (res->length) * sizeof(unsigned long); // for the array containing the numbers
+	*size = (int)length;
+	// allocate memory for char array
+	
+
+	serialized_result  = (unsigned char *)malloc(sizeof(unsigned char)*length);
+	// copy memory piece by piece to the byte stream(char array)
+	start = serialized_result;
+	// copy length and num first and keep moving the pointer
+	memcpy(serialized_result,&(res->length),sizeof(int));
+	serialized_result += sizeof(int);
+	
+	// copy the factors array
+	for(i=0;i<res->length;i++){
+		memcpy(serialized_result,&(res->factors[i]),sizeof(unsigned long));
+		serialized_result += sizeof(unsigned long);
+	}
+	// return the byte stream
+	
+	return start;
+
+}
+
+result_unit* deserialize_result(unsigned char *serialized_result,int size){
+	int i;
+	// create new work unit
+	result_unit *res = (result_unit *)malloc(sizeof(result_unit));
+	// copy value of length
+	memcpy(&(res->length),serialized_result,sizeof(int));
+	serialized_result += sizeof(int);
+	
+	res->factors = (unsigned long *)malloc( sizeof(unsigned long) * (res->length));
+	// copy the number array
+	
+	for(i=0;i<res->length;i++){
+		memcpy(&(res->factors[i]),serialized_result,sizeof(unsigned long));
+	//	printf(" Deserialized factors %lu\n",res->factors[i]);
+		serialized_result += sizeof(unsigned long);
+	}
+	// return the result object
+	return res;
+}
+
+
+
 unsigned char* serialize_work(work_unit *work,int *size){
-	printf("serializing work\n");
+	//printf("serializing work\n");
 	unsigned char *serialized_work;
 	unsigned char *start;
 	//unsigned char **temp = (unsigned char **)malloc(sizeof(unsigned char *));
@@ -36,7 +88,7 @@ unsigned char* serialize_work(work_unit *work,int *size){
 	// copy length and num first and keep moving the pointer
 	memcpy(serialized_work,&(work->first),sizeof(unsigned long));
 	
-	printf("work first %lu\n",(unsigned long)(*serialized_work));
+	//printf("work first %lu\n",(unsigned long)(*serialized_work));
 	// allocate memory for char array
 	serialized_work += sizeof(unsigned long);
 	
@@ -49,7 +101,7 @@ unsigned char* serialize_work(work_unit *work,int *size){
 		memcpy(serialized_work,&(work->numbers[i]),sizeof(unsigned long));
 		serialized_work += sizeof(unsigned long);
 	}*/
-	printf("done serializing\n");
+	//printf("done serializing\n");
 	// return the byte stream
 	
 	return start;
@@ -61,7 +113,7 @@ work_unit* deserialize_work(unsigned char *serialized_work,int size){
 	work_unit *work = (work_unit *)malloc(sizeof(work_unit));
 	// copy value of length
 	memcpy(&(work->first),serialized_work,sizeof(unsigned long));
-	printf(" deserialize work first %lu\n",(unsigned long)(*serialized_work));
+	//printf(" deserialize work first %lu\n",(unsigned long)(*serialized_work));
 	serialized_work += sizeof(unsigned long);
 	
 	memcpy(&(work->end),serialized_work,sizeof(unsigned long));
@@ -124,15 +176,16 @@ work_unit** create_work(int argc, char **argv){
 
 int process_results(int sz, result_unit **res){
 	unsigned long result=0;
-int i=0,j=0;
-/*for(i=0;i<sz;i++)
-{
-	for(j=0;j<8;j++)
-	{
-		result += res[i]->factors[j];
+	int i=0,j=0;
+	for(i=0;i<sz;i++){
+		
+		printf(" length in compile %d\n", res[i]->length );
+		for(j=0;j<(res[i]->length);j++){
+			result = res[i]->factors[j];
+			printf("Factors!! %lu\n",result);
+		}
 	}
-}*/
-printf("%lu\n",result);
+	//printf("%lu\n",result);
 
 return result;
 }
@@ -143,8 +196,7 @@ result_unit* do_work(work_unit *work){
 	unsigned long i;
 	int j=0;
 	res->length = 0;
-	for(i=work->first;i<=(work->end);i++)
-	{
+	for(i=work->first;i<=(work->end);i++){
 		if((work->num)%(i) == 0){
 			//printf("Factor %lu\n",i);
 			res->factors[j++] = i;
@@ -170,6 +222,8 @@ int main (int argc, char **argv)
   f.compute = do_work;
   f.serialize = serialize_work;
   f.deserialize = deserialize_work;
+  f.serialize_result = serialize_result;
+  f.deserialize_result = deserialize_result;
   f.work_sz = sizeof (work_unit);
   f.res_sz = sizeof (result_unit);
 
