@@ -13,7 +13,7 @@ struct result_t {
 
 work_unit** create_work(int argc, char **argv){
 	int size =6;
-	printf("%d\n",size);
+	//printf("%d\n",size);
 	work_unit** t=(work_unit**)malloc(size*sizeof(work_unit*)); 
 	int i=0;	
 	for(i=0;i<size-1;i++){
@@ -22,7 +22,7 @@ work_unit** create_work(int argc, char **argv){
 		t[i]=temp;
 	}
 	t[size-1]=NULL;
-	printf("created_work\n");
+	//printf("created_work\n");
 	return t;
 }
 
@@ -32,16 +32,16 @@ int process_results(int sz, result_unit **res){
 	for(i=0;i<sz;i++)
 	{
 		result += res[i]->t;
-		printf("result %f %f %d\n",res[i]->t,result,sz);
+	//	printf("result %f %f %d\n",res[i]->t,result,sz);
 	}
 	printf("%f\n",result);
-	return result;
+	return 1;
 }
 
 result_unit* do_work(work_unit *work){
 	result_unit* res = (result_unit *)malloc(sizeof(result_unit));
 	res->t= work->t;
-	printf("doing work %f\n",res->t);
+	//printf("doing work %f\n",work->t);
 	return res;
 }
 
@@ -60,7 +60,7 @@ int main (int argc, char **argv)
   MW_Run (argc, argv, &f);
   MPI_Finalize ();
   
-  testing();
+  //testing();
   return 0;
 
 }

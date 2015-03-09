@@ -20,19 +20,16 @@ struct result_t {
 unsigned char* serialize_result(result_unit *res,int *size){
 	unsigned char *serialized_result;
 	unsigned char *start;
-	//unsigned char **temp = (unsigned char **)malloc(sizeof(unsigned char *));
-	// calculate the total size of work unit and allocate that much memory
 	unsigned long i,length;
-	length = (sizeof(int)); // for length and num
-	length += (res->length) * sizeof(unsigned long); // for the array containing the numbers
+	// calculate the total size of work unit and allocate that much memory
+	length = (sizeof(int)); // for length 
+	length += (res->length) * sizeof(unsigned long); // for the array containing the factors
 	*size = (int)length;
 	// allocate memory for char array
-	
-
 	serialized_result  = (unsigned char *)malloc(sizeof(unsigned char)*length);
 	// copy memory piece by piece to the byte stream(char array)
 	start = serialized_result;
-	// copy length and num first and keep moving the pointer
+	// copy length first and keep moving the pointer
 	memcpy(serialized_result,&(res->length),sizeof(int));
 	serialized_result += sizeof(int);
 	
@@ -42,25 +39,22 @@ unsigned char* serialize_result(result_unit *res,int *size){
 		serialized_result += sizeof(unsigned long);
 	}
 	// return the byte stream
-	
 	return start;
 
 }
 
 result_unit* deserialize_result(unsigned char *serialized_result,int size){
 	int i;
-	// create new work unit
+	// create new result unit
 	result_unit *res = (result_unit *)malloc(sizeof(result_unit));
 	// copy value of length
 	memcpy(&(res->length),serialized_result,sizeof(int));
 	serialized_result += sizeof(int);
-	
+	// allocate memory for factors
 	res->factors = (unsigned long *)malloc( sizeof(unsigned long) * (res->length));
-	// copy the number array
-	
+	// copy the factors array
 	for(i=0;i<res->length;i++){
 		memcpy(&(res->factors[i]),serialized_result,sizeof(unsigned long));
-	//	printf(" Deserialized factors %lu\n",res->factors[i]);
 		serialized_result += sizeof(unsigned long);
 	}
 	// return the result object
@@ -70,32 +64,25 @@ result_unit* deserialize_result(unsigned char *serialized_result,int size){
 
 
 unsigned char* serialize_work(work_unit *work,int *size){
-	//printf("serializing work\n");
 	unsigned char *serialized_work;
 	unsigned char *start;
-	//unsigned char **temp = (unsigned char **)malloc(sizeof(unsigned char *));
 	// calculate the total size of work unit and allocate that much memory
 	unsigned long i,length;
 	length = 3*(sizeof(unsigned long)); // for length and num
-	//length += (work->length) * sizeof(unsigned long); // for the array containing the numbers
 	*size = (int)length;
 	// allocate memory for char array
-	
-
 	serialized_work  = (unsigned char *)malloc(sizeof(unsigned char)*length);
 	// copy memory piece by piece to the byte stream(char array)
 	start = serialized_work;
 	// copy length and num first and keep moving the pointer
 	memcpy(serialized_work,&(work->first),sizeof(unsigned long));
 	
-	//printf("work first %lu\n",(unsigned long)(*serialized_work));
 	// allocate memory for char array
 	serialized_work += sizeof(unsigned long);
 	
 	memcpy(serialized_work,&(work->end),sizeof(unsigned long));
 	serialized_work += sizeof(unsigned long);
 	memcpy(serialized_work,&(work->num),sizeof(unsigned long));
-	//serialized_work += sizeof(unsigned long);
 	// copy the number array
 	/*for(i=0;i<work->length;i++){
 		memcpy(serialized_work,&(work->numbers[i]),sizeof(unsigned long));
@@ -132,8 +119,8 @@ work_unit* deserialize_work(unsigned char *serialized_work,int size){
 }
 
 work_unit** create_work(int argc, char **argv){
-	printf("Here\n");	
-	int size = 5;
+	//printf("Here\n");	
+	int size = 7;
 	mpz_t big_num, big_sqrt;
 	mpz_init(big_num);
 	mpz_init(big_sqrt);
@@ -148,7 +135,7 @@ work_unit** create_work(int argc, char **argv){
 	mpz_sqrt(big_sqrt,big_num);
  	num  = mpz_get_ui(big_num);
 	sqrt =  mpz_get_ui(big_sqrt);
-	gmp_printf("%Zd  %Zd\n",big_num,big_sqrt);
+	//gmp_printf("%Zd  %Zd\n",big_num,big_sqrt);
 	// from 1 to square root divide it into chunks
 	// taking ceiling for quotient with division
 	unit_size = (sqrt/(size-1));
@@ -170,7 +157,7 @@ work_unit** create_work(int argc, char **argv){
 		t[i]=temp;
 	}
 	t[size-1]=NULL;
-	printf("created_work\n");
+	//printf("created_work\n");
 	return t;
 }
 
@@ -179,15 +166,15 @@ int process_results(int sz, result_unit **res){
 	int i=0,j=0;
 	for(i=0;i<sz;i++){
 		
-		printf(" length in compile %d\n", res[i]->length );
+		//printf(" length in compile %d\n", res[i]->length );
 		for(j=0;j<(res[i]->length);j++){
 			result = res[i]->factors[j];
-			printf("Factors!! %lu\n",result);
+		//	printf("Factors!! %lu\n",result);
 		}
 	}
 	//printf("%lu\n",result);
 
-return result;
+return 1;
 }
 
 result_unit* do_work(work_unit *work){
@@ -200,15 +187,12 @@ result_unit* do_work(work_unit *work){
 		if((work->num)%(i) == 0){
 			//printf("Factor %lu\n",i);
 			res->factors[j++] = i;
-			res->factors[j++] = (work->num)/i;
-			res->length+=2;
+			//res->factors[j++] = (work->num)/i;
+			res->length+=1;
 		}
 	}
 	realloc(res->factors,(res->length)*sizeof(unsigned long));
-	for(j=0;j<res->length;j++){
-		printf(" factor %lu\n",res->factors[j]);
-	}
-	printf("doing work \n");
+	//printf("doing work \n");
 	return res;
 }
 
@@ -229,7 +213,7 @@ int main (int argc, char **argv)
 
   //printf("Here\n");
   MPI_Init (&argc, &argv);
-  testing();
+  //testing();
   MW_Run (argc, argv, &f);
   MPI_Finalize ();
   

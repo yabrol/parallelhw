@@ -29,7 +29,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 			work_unit *chunk = (work_unit *)malloc(f->work_sz);
 			chunk = work[i];
 			MPI_Send(chunk, f->work_sz, MPI_BYTE, wid, TAG_WORK, MPI_COMM_WORLD );
-			printf("Process %d out of %d\n", wid, sz);
+			//printf("Process %d out of %d\n", wid, sz);
 			wid = 1 + (wid)%(sz-1);
 			i++;
 			free(chunk);
@@ -43,9 +43,9 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 			
 			result_unit *r = (result_unit *)malloc(f->res_sz);
 			wid = 1 + (wid)%(sz-1);
-			printf("wait %d\n",wid);
+			//printf("wait %d\n",wid);
 			MPI_Recv(r, f->res_sz, MPI_BYTE, wid, TAG_RESULT, MPI_COMM_WORLD, &status);
-			printf("done %d\n",wid);
+			//printf("done %d\n",wid);
 			results[i]=r;
 		
 			//free(r);
@@ -81,7 +81,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 			}
 			// if termination tag received cleanup
 			if(status_w.MPI_TAG == TAG_TERMINATE){
-				printf("terminate %d\n",myid);
+			//	printf("terminate %d\n",myid);
 				free(w_work);
 				break;
 			}

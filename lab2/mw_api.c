@@ -3,9 +3,6 @@
 #include <mpi.h>
 #include <stdlib.h>
 
-void testing(){
-	printf("testing\n");
-}
 #define TRUE 1
 #define MASTER_ID 0
 #define TAG_WORK 0
@@ -24,22 +21,24 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		int wid=1;
 		int n_chunks;
 		int size;
+		double start_time, end_time, delta;
 		// Send chunks of work to all the workers unless you encounter null
 		int i=0;
+		start_time = MPI_Wtime();
 		while(work[i]!=NULL){
 			work_unit *chunk = (work_unit *)malloc(f->work_sz);
 			chunk = work[i];
 			unsigned char *serialized_chunk = f->serialize(work[i],&size);
-			//printf("Serializing done %lu\n",(unsigned long)(*serialized_chunk));
+			//printf("Serializing done %lu\n",(int)(*serialized_chunk));
 			MPI_Send(serialized_chunk, size, MPI_CHAR, wid, TAG_WORK, MPI_COMM_WORLD );
-			printf("Process %d out of %d\n", wid, sz);
+			//printf("Process %d out of %d\n", wid, sz);
 			wid = 1 + (wid)%(sz-1);
 			i++;
 			free(serialized_chunk);
 			free(chunk);
 		}
 		n_chunks = i;
-		printf("total_workers %d\n",sz-1);
+		//printf("total_workers %d\n",sz-1);
 		// Wait for the results
 		result_unit **results = (result_unit **)malloc((n_chunks)*sizeof(result_unit *));
 		wid=0;
@@ -47,7 +46,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 			
 			result_unit *r = (result_unit *)malloc(f->res_sz);
 			wid = 1 + (wid)%(sz-1);
-			printf("wait %d\n",wid);
+			//printf("wait %d\n",wid);
 			int result_size;
 			MPI_Probe(wid, TAG_RESULT, MPI_COMM_WORLD, &status);
 			MPI_Get_count(&status, MPI_BYTE, &result_size);
@@ -56,7 +55,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 			MPI_Recv(serialized_result, result_size, MPI_BYTE, wid, TAG_RESULT, MPI_COMM_WORLD, &status);
 			// deserialize result
 		  	r = f->deserialize_result(serialized_result,result_size);	
-			printf("done %d\n",wid);
+			//printf("done %d\n",wid);
 			results[i]=r;
 		
 			//free(r);
@@ -69,8 +68,11 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		// compile the results together
 		int compilation_status=0;
 		compilation_status = f->compile(n_chunks,results);
-		printf("compilation %d\n",compilation_status);
+		//printf("compilation %d\n",compilation_status);
 		free(results);
+		end_time = MPI_Wtime();
+		delta = end_time - start_time;
+		printf("%.11f\n",delta);
 	}
 	else{
 		MPI_Status status_w,status_size;
@@ -90,7 +92,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 			// Compute the results 
 			if(status_w.MPI_TAG == TAG_WORK){
 				w_r = (result_unit *)malloc(f->res_sz);
-				printf("start deserializing\n");
+				//printf("start deserializing\n");
 				w_work = f->deserialize(serialized_work,size);
 				w_r = f->compute(w_work);
 				
@@ -98,14 +100,14 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 				// Send it back to the master
 				// serialize result
 				unsigned char *serialized_result  = f->serialize_result(w_r,&len);
-				printf("serialized length %d\n",(int)(*serialized_result));
+				//printf("serialized length %d\n",(int)(*serialized_result));
 				MPI_Send(serialized_result, len, MPI_BYTE, MASTER_ID, TAG_RESULT, MPI_COMM_WORLD);
 				free(w_r);
 				free(w_work);
 			}
 			// if termination tag received cleanup
 			if(status_w.MPI_TAG == TAG_TERMINATE){
-				printf("terminate %d\n",myid);
+				//printf("terminate %d\n",myid);
 				free(w_work);
 				break;
 			}
