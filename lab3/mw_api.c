@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <mpi.h>
 #include <stdlib.h>
+#include <time.h>
 
 #define TRUE 1
 #define MASTER_ID 0
@@ -101,7 +102,10 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 				// serialize result
 				unsigned char *serialized_result  = f->serialize_result(w_r,&len);
 				//printf("serialized length %d\n",(int)(*serialized_result));
-				MPI_Send(serialized_result, len, MPI_BYTE, MASTER_ID, TAG_RESULT, MPI_COMM_WORLD);
+				//temp remove this next line
+				//MPI_Send(serialized_result, len, MPI_BYTE, MASTER_ID, TAG_RESULT, MPI_COMM_WORLD);
+				//FAIL THE WORKER
+				F_Send(serialized_result, len, MPI_BYTE, MASTER_ID, TAG_RESULT, MPI_COMM_WORLD);
 				free(w_r);
 				free(w_work);
 			}
@@ -114,3 +118,31 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		}
 	}
 }
+
+int F_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm)
+{
+	if (random_fail()) {      
+		MPI_Finalize();
+		exit (0);
+		return 0;
+   } else {
+      returm MPI_Send (buf, count, datatype, dest, tag, comm);
+   }
+}
+
+//can be implemented using the built-in random number generator and comparing the value returned to the threshold p
+bool random_fail(){
+	//get random number seeded by system time
+	srand(time(NULL));//if things break, we can remove this line so seed will always be 1, but each time same numbers will be generated
+	int randomNum = rand() % 101;
+
+	int p = 80;//change as needed
+
+	if(randomNum > p)
+	{
+		return TRUE;
+	} else{
+		return FALSE;
+	}
+}
+
