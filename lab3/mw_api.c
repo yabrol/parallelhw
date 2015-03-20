@@ -130,7 +130,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		// put work into the queue
 		int i=0;
 		while(work[i]!=NULL){
-			enqueue(queue,work[i]);
+			enqueue(wq,work[i]);
 		}
 		int wid=1;
 		int n_chunks;
