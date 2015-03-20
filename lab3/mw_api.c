@@ -51,7 +51,7 @@ void dequeue(work_queue queue)
 		printf("Queue Pointer Empty");
 		return;
 	}
-	if(queue_empty() == TRUE){
+	if(queue_empty(queue) == TRUE){
 		printf("Queue Empty");
 		return;
 	}
