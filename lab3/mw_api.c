@@ -77,10 +77,11 @@ void enqueue(work_queue queue, work_unit *work)
    * the linked list.
    */
   if (queue->front == NULL) {  /* Queue is empty */
-    queue->front = queue->rear = work_node;
-  } else {
-    queue->rear->next = work_node;
-    queue->rear = work_node;
+    queue->front = queue->rear = new_work;
+  }
+  else {
+    queue->rear->next = new_work;
+    queue->rear = new_work;
   }
 }
 
