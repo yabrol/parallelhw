@@ -13,6 +13,109 @@
 
 int random_fail();
 
+typedef struct work_node_t{
+	work_unit *work;
+	work_queue *next;
+} work_node;
+
+typedef struct work_queue_node_t
+{
+	/* data */
+	work_node *front, *rear;
+} work_queue_node, *work_queue;
+
+
+work_queue queue_create(void)
+{
+  work_queue queue;
+  queue = (work_queue)malloc(sizeof(work_queue_node));
+  if (queue == NULL) {
+    fprintf(stderr, "Insufficient memory for new queue.\n");
+    exit(1);  /* Exit program, returning error code. */
+  }
+  queue->front = queue->rear = NULL;
+  return queue;
+}
+
+void queue_destroy(work_queue queue)
+{
+  /*
+   * First remove each element from the queue (each
+   * element is in a dynamically-allocated node.)
+   */
+  while (!queue_empty(queue))
+    queue_delete(queue);
+
+  /*
+   * Reset the front and rear just in case someone
+   * tries to use them after the CDT is freed.
+   */
+  queue->front = queue->rear = NULL;
+
+  /*
+   * Now free the structure that holds information
+   * about the queue.
+   */
+  free(queue);
+}
+
+void enqueue(work_queue queue, work_unit work)
+{
+  work_node *new_work;
+
+  /* Allocate space for a node in the linked list. */
+  new_work = (work_node *)malloc(sizeof(work_node));
+  if (new_work == NULL) {
+    fprintf(stderr, "Insufficient memory for new queue element.\n");
+    exit(1);  /* Exit program, returning error code. */
+  }
+  /* Place information in the node */
+  new_work->work = work;
+  new_work->next = NULL;
+  /*
+   * Link the element into the right place in
+   * the linked list.
+   */
+  if (queue->front == NULL) {  /* Queue is empty */
+    queue->front = queue->rear = work_node;
+  } else {
+    queue->rear->next = work_node;
+    queue->rear = work_node;
+  }
+}
+
+void dequeue(work_queue queue)
+{
+	if(queue == NULL){
+		printf("Queue Pointer Empty");
+		return;
+	}
+	if(queue_empty() == TRUE){
+		printf("Queue Empty");
+		return;
+	}
+	else{
+		//check for one element
+		if(queue->front == queue->rear){
+			queue->front = NULL;
+			queue->rear = NULL;
+			return;
+		}
+		else{
+			queue->front = (queue->front)->next;
+		}
+	}
+
+}
+
+int queue_empty(work_queue queue){
+	if(queue == NULL)
+		return TRUE;
+	if(queue->front == NULL)
+		return TRUE;
+	return FALSE;
+}
+
 void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 	int sz, myid;
 	MPI_Comm_size(MPI_COMM_WORLD, &sz);
@@ -22,16 +125,24 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		// Get pool of work
 		work_unit **work;// = (work_unit *)malloc(f->work_sz);
 		work = f->create(argc,argv);
+		work_queue wq;
+		wq = queue_create();
+		// put work into the queue
+		while(work[i]!=NULL){
+			enqueue(queue,work[i]);
+		}
 		int wid=1;
 		int n_chunks;
 		int size;
 		double start_time, end_time, delta;
+		// Have queues for work units to be done
+
 		// Send chunks of work to all the workers unless you encounter null
 		int i=0;
 		start_time = MPI_Wtime();
-		while(work[i]!=NULL){
+		while(queue_empty(wq)!=TRUE){
 			work_unit *chunk = (work_unit *)malloc(f->work_sz);
-			chunk = work[i];
+			chunk = wq->front->work;
 			unsigned char *serialized_chunk = f->serialize(work[i],&size);
 			//printf("Serializing done %lu\n",(int)(*serialized_chunk));
 			MPI_Send(serialized_chunk, size, MPI_CHAR, wid, TAG_WORK, MPI_COMM_WORLD );
@@ -40,6 +151,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 			i++;
 			free(serialized_chunk);
 			free(chunk);
+			dequeue(wq);
 		}
 		n_chunks = i;
 		//printf("total_workers %d\n",sz-1);
