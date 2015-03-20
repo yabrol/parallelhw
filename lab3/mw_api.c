@@ -103,9 +103,9 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 				unsigned char *serialized_result  = f->serialize_result(w_r,&len);
 				//printf("serialized length %d\n",(int)(*serialized_result));
 				//temp remove this next line
-				//MPI_Send(serialized_result, len, MPI_BYTE, MASTER_ID, TAG_RESULT, MPI_COMM_WORLD);
+				MPI_Send(serialized_result, len, MPI_BYTE, MASTER_ID, TAG_RESULT, MPI_COMM_WORLD);
 				//FAIL THE WORKER
-				F_Send(serialized_result, len, MPI_BYTE, MASTER_ID, TAG_RESULT, MPI_COMM_WORLD);
+				//F_Send(serialized_result, len, MPI_BYTE, MASTER_ID, TAG_RESULT, MPI_COMM_WORLD);
 				free(w_r);
 				free(w_work);
 			}
