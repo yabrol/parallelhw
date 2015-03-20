@@ -15,7 +15,7 @@ int random_fail();
 
 typedef struct work_node_t{
 	work_unit *work;
-	work_queue *next;
+	struct work_node_t *next;
 } work_node;
 
 typedef struct work_queue_node_t
