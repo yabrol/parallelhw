@@ -10,6 +10,8 @@
 #define TAG_RESULT 1
 #define TAG_TERMINATE 99
 
+bool random_fail();
+
 void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 	int sz, myid;
 	MPI_Comm_size(MPI_COMM_WORLD, &sz);
