@@ -37,6 +37,38 @@ work_queue queue_create(void)
   return queue;
 }
 
+int queue_empty(work_queue queue){
+	if(queue == NULL)
+		return TRUE;
+	if(queue->front == NULL)
+		return TRUE;
+	return FALSE;
+}
+
+void dequeue(work_queue queue)
+{
+	if(queue == NULL){
+		printf("Queue Pointer Empty");
+		return;
+	}
+	if(queue_empty() == TRUE){
+		printf("Queue Empty");
+		return;
+	}
+	else{
+		//check for one element
+		if(queue->front == queue->rear){
+			queue->front = NULL;
+			queue->rear = NULL;
+			return;
+		}
+		else{
+			queue->front = (queue->front)->next;
+		}
+	}
+
+}
+
 void queue_destroy(work_queue queue)
 {
   /*
@@ -44,7 +76,7 @@ void queue_destroy(work_queue queue)
    * element is in a dynamically-allocated node.)
    */
   while (!queue_empty(queue))
-    queue_delete(queue);
+    dequeue(queue);
 
   /*
    * Reset the front and rear just in case someone
@@ -85,37 +117,6 @@ void enqueue(work_queue queue, work_unit *work)
   }
 }
 
-void dequeue(work_queue queue)
-{
-	if(queue == NULL){
-		printf("Queue Pointer Empty");
-		return;
-	}
-	if(queue_empty() == TRUE){
-		printf("Queue Empty");
-		return;
-	}
-	else{
-		//check for one element
-		if(queue->front == queue->rear){
-			queue->front = NULL;
-			queue->rear = NULL;
-			return;
-		}
-		else{
-			queue->front = (queue->front)->next;
-		}
-	}
-
-}
-
-int queue_empty(work_queue queue){
-	if(queue == NULL)
-		return TRUE;
-	if(queue->front == NULL)
-		return TRUE;
-	return FALSE;
-}
 
 void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 	int sz, myid;
