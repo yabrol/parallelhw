@@ -5,12 +5,13 @@
 #include <time.h>
 
 #define TRUE 1
+#define FALSE 0
 #define MASTER_ID 0
 #define TAG_WORK 0
 #define TAG_RESULT 1
 #define TAG_TERMINATE 99
 
-bool random_fail();
+int random_fail();
 
 void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 	int sz, myid;
@@ -133,7 +134,7 @@ int F_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_C
 }
 
 //can be implemented using the built-in random number generator and comparing the value returned to the threshold p
-bool random_fail(){
+int random_fail(){
 	//get random number seeded by system time
 	srand(time(NULL));//if things break, we can remove this line so seed will always be 1, but each time same numbers will be generated
 	int randomNum = rand() % 101;
