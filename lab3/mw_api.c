@@ -59,7 +59,7 @@ void queue_destroy(work_queue queue)
   free(queue);
 }
 
-void enqueue(work_queue queue, work_unit work)
+void enqueue(work_queue queue, work_unit *work)
 {
   work_node *new_work;
 
@@ -128,6 +128,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		work_queue wq;
 		wq = queue_create();
 		// put work into the queue
+		int i=0;
 		while(work[i]!=NULL){
 			enqueue(queue,work[i]);
 		}
@@ -138,12 +139,11 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		// Have queues for work units to be done
 
 		// Send chunks of work to all the workers unless you encounter null
-		int i=0;
 		start_time = MPI_Wtime();
 		while(queue_empty(wq)!=TRUE){
 			work_unit *chunk = (work_unit *)malloc(f->work_sz);
 			chunk = wq->front->work;
-			unsigned char *serialized_chunk = f->serialize(work[i],&size);
+			unsigned char *serialized_chunk = f->serialize(chunk,&size);
 			//printf("Serializing done %lu\n",(int)(*serialized_chunk));
 			MPI_Send(serialized_chunk, size, MPI_CHAR, wid, TAG_WORK, MPI_COMM_WORLD );
 			//printf("Process %d out of %d\n", wid, sz);
