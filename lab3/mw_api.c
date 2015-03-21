@@ -168,7 +168,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		while(results_to_fetch>1){
 			for(wid=1;wid<results_to_fetch;wid++){
 				result_unit *r = (result_unit *)malloc(f->res_sz);
-				//printf("wait %d\n",wid);
+				printf("wait %d\n",wid);
 				int result_size;
 				MPI_Probe(wid, TAG_RESULT, MPI_COMM_WORLD, &status);
 				MPI_Get_count(&status, MPI_BYTE, &result_size);
