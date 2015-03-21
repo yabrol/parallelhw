@@ -117,6 +117,18 @@ void enqueue(work_queue queue, work_unit *work)
   }
 }
 
+void send_work(int wid,work_queue wq){
+	work_unit *chunk = (work_unit *)malloc(f->work_sz);
+	chunk = wq->front->work;
+	unsigned char *serialized_chunk = f->serialize(chunk,&size);
+	//printf("Serializing done %lu\n",(int)(*serialized_chunk));
+	MPI_Send(serialized_chunk, size, MPI_CHAR, wid, TAG_WORK, MPI_COMM_WORLD );
+	//printf("Process %d out of %d\n", wid, sz);
+	//wid = 1 + (wid)%(sz-1);
+	free(serialized_chunk);
+	free(chunk);
+	dequeue(wq);
+}
 
 void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 	int sz, myid;
@@ -143,40 +155,41 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 
 		// Send chunks of work to all the workers unless you encounter null
 		start_time = MPI_Wtime();
-		while(queue_empty(wq)!=TRUE){
-			work_unit *chunk = (work_unit *)malloc(f->work_sz);
-			chunk = wq->front->work;
-			unsigned char *serialized_chunk = f->serialize(chunk,&size);
-			//printf("Serializing done %lu\n",(int)(*serialized_chunk));
-			MPI_Send(serialized_chunk, size, MPI_CHAR, wid, TAG_WORK, MPI_COMM_WORLD );
-			//printf("Process %d out of %d\n", wid, sz);
-			wid = 1 + (wid)%(sz-1);
-			free(serialized_chunk);
-			free(chunk);
-			dequeue(wq);
+		for(wid=1;wid<sz;wid++){
+			send_work(wid,wq);
 		}
 		n_chunks = i;
 		//printf("total_workers %d\n",sz-1);
 		// Wait for the results
 		result_unit **results = (result_unit **)malloc((n_chunks)*sizeof(result_unit *));
 		wid=0;
-		for(i=0;i<n_chunks;i++){
-			
-			result_unit *r = (result_unit *)malloc(f->res_sz);
-			wid = 1 + (wid)%(sz-1);
-			//printf("wait %d\n",wid);
-			int result_size;
-			MPI_Probe(wid, TAG_RESULT, MPI_COMM_WORLD, &status);
-			MPI_Get_count(&status, MPI_BYTE, &result_size);
+		i=0;
+		while(queue_empty(wq) == FALSE){
+			for(wid=1;wid<sz;wid++){
+				
+				result_unit *r = (result_unit *)malloc(f->res_sz);
+				//wid = 1 + (wid)%(sz-1);
+				//printf("wait %d\n",wid);
+				int result_size;
+				MPI_Probe(wid, TAG_RESULT, MPI_COMM_WORLD, &status);
+				MPI_Get_count(&status, MPI_BYTE, &result_size);
 
-			unsigned char *serialized_result = (unsigned char *)malloc(result_size);
-			MPI_Recv(serialized_result, result_size, MPI_BYTE, wid, TAG_RESULT, MPI_COMM_WORLD, &status);
-			// deserialize result
-		  	r = f->deserialize_result(serialized_result,result_size);	
-			//printf("done %d\n",wid);
-			results[i]=r;
-		
-			//free(r);
+				unsigned char *serialized_result = (unsigned char *)malloc(result_size);
+				MPI_Recv(serialized_result, result_size, MPI_BYTE, wid, TAG_RESULT, MPI_COMM_WORLD, &status);
+				// deserialize result
+			  	r = f->deserialize_result(serialized_result,result_size);
+			  	results[i]=r;
+			  	i++;
+			  	// if work left assign new work
+			  	if(queue_empty(wq) == FALSE){
+			  		send_work(wid,wq);
+			  	}
+			  	else{
+			  		break;
+			  	}
+				//printf("done %d\n",wid);
+				//free(r);
+			}
 		}
 		// terminate all workers
 		for(i=1;i<sz;i++){
