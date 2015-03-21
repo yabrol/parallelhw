@@ -146,7 +146,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 			work_unit *chunk = (work_unit *)malloc(f->work_sz);
 			chunk = wq->front->work;
 			unsigned char *serialized_chunk = f->serialize(chunk,&size);
-			//printf("Serializing done %lu\n",(int)(*serialized_chunk));
+			printf("Serializing done %lu\n",(int)(*serialized_chunk));
 			MPI_Send(serialized_chunk, size, MPI_CHAR, wid, TAG_WORK, MPI_COMM_WORLD );
 			//printf("Process %d out of %d\n", wid, sz);
 			wid = 1 + (wid)%(sz-1);

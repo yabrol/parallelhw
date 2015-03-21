@@ -88,7 +88,7 @@ unsigned char* serialize_work(work_unit *work,int *size){
 		memcpy(serialized_work,&(work->numbers[i]),sizeof(unsigned long));
 		serialized_work += sizeof(unsigned long);
 	}*/
-	//printf("done serializing\n");
+	printf("done serializing work\n");
 	// return the byte stream
 	
 	return start;
@@ -185,7 +185,7 @@ result_unit* do_work(work_unit *work){
 	res->length = 0;
 	for(i=work->first;i<=(work->end);i++){
 		if((work->num)%(i) == 0){
-			//printf("Factor %lu\n",i);
+			printf("Factor %lu\n",i);
 			res->factors[j++] = i;
 			//res->factors[j++] = (work->num)/i;
 			res->length+=1;
