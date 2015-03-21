@@ -165,6 +165,8 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		result_unit **results = (result_unit **)malloc((n_chunks)*sizeof(result_unit *));
 		i=0;
 		int results_to_fetch = sz;
+				printf("sz %d\n",results_to_fetch);
+
 		while(results_to_fetch>1){
 			for(wid=1;wid<results_to_fetch;wid++){
 				result_unit *r = (result_unit *)malloc(f->res_sz);
