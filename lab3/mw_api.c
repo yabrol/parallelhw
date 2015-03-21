@@ -133,6 +133,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		int i=0;
 		while(work[i]!=NULL){
 			enqueue(wq,work[i]);
+			i++;
 		}
 		int wid=1;
 		int n_chunks;
@@ -150,7 +151,6 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 			MPI_Send(serialized_chunk, size, MPI_CHAR, wid, TAG_WORK, MPI_COMM_WORLD );
 			//printf("Process %d out of %d\n", wid, sz);
 			wid = 1 + (wid)%(sz-1);
-			i++;
 			free(serialized_chunk);
 			free(chunk);
 			dequeue(wq);
