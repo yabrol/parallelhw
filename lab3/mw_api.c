@@ -156,19 +156,17 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 
 		// Send chunks of work to all the workers unless you encounter null
 		start_time = MPI_Wtime();
-		while(queue_empty(wq)!=TRUE){
+		for(wid=1;wid<sz;wid++){
 			send_work(wid,wq,f);
-			wid = 1 + (wid)%(sz-1);
 		}
 		n_chunks = i;
 		//printf("total_workers %d\n",sz-1);
 		// Wait for the results
 		result_unit **results = (result_unit **)malloc((n_chunks)*sizeof(result_unit *));
-		wid=0;
-		for(i=0;i<n_chunks;i++){
+		i=0;
+		for(wid=0;wid<sz;wid++){
 			
 			result_unit *r = (result_unit *)malloc(f->res_sz);
-			wid = 1 + (wid)%(sz-1);
 			//printf("wait %d\n",wid);
 			int result_size;
 			MPI_Probe(wid, TAG_RESULT, MPI_COMM_WORLD, &status);
@@ -180,7 +178,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		  	r = f->deserialize_result(serialized_result,result_size);	
 			//printf("done %d\n",wid);
 			results[i]=r;
-		
+			i++;
 			//free(r);
 		}
 		// terminate all workers
