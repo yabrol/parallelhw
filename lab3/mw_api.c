@@ -164,10 +164,12 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		// Wait for the results
 		result_unit **results = (result_unit **)malloc((n_chunks)*sizeof(result_unit *));
 		i=0;
-		int results_to_fetch = sz;
-				printf("sz %d\n",results_to_fetch);
+		int new_results_to_fetch = sz;
+				printf("sz %d\n",new_results_to_fetch);
 
-		while(results_to_fetch>1){
+		while(new_results_to_fetch>1){
+			int results_to_fetch = new_results_to_fetch;
+			new_results_to_fetch = 1;
 			for(wid=1;wid<results_to_fetch;wid++){
 				result_unit *r = (result_unit *)malloc(f->res_sz);
 				printf("wait %d\n",wid);
@@ -179,15 +181,14 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 				MPI_Recv(serialized_result, result_size, MPI_BYTE, wid, TAG_RESULT, MPI_COMM_WORLD, &status);
 				// deserialize result
 			  	r = f->deserialize_result(serialized_result,result_size);	
-				//printf("done %d\n",wid);
+				printf("done %d\n",wid);
 				results[i]=r;
 				i++;
 				if(queue_empty(wq) == FALSE){
 			  		send_work(wid,wq,f);
-			  		results_to_fetch++;
+			  		new_results_to_fetch++;
 			  	}
-			  	results_to_fetch--;
-				//free(r);
+			  	//free(r);
 			}
 		}
 		// terminate all workers
