@@ -118,6 +118,7 @@ void enqueue(work_queue queue, work_unit *work)
 }
 
 void send_work(int wid,work_queue wq,struct mw_api_spec *f){
+	int size;
 	work_unit *chunk = (work_unit *)malloc(f->work_sz);
 	chunk = wq->front->work;
 	unsigned char *serialized_chunk = f->serialize(chunk,&size);
@@ -149,7 +150,6 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		}
 		int wid=1;
 		int n_chunks;
-		int size;
 		double start_time, end_time, delta;
 		// Have queues for work units to be done
 
