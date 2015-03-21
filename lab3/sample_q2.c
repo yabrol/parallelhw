@@ -151,7 +151,7 @@ work_unit** create_work(int argc, char **argv){
 			//temp->numbers[j] = count;
 			count++;
 		}
-		temp->end = count;
+		temp->end = count-1;
 		temp->num = num;
 		//temp->length = unit_size;
 		t[i]=temp;
