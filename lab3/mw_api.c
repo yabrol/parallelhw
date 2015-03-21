@@ -117,7 +117,7 @@ void enqueue(work_queue queue, work_unit *work)
   }
 }
 
-void send_work(int wid,work_queue wq){
+void send_work(int wid,work_queue wq,struct mw_api_spec *f){
 	work_unit *chunk = (work_unit *)malloc(f->work_sz);
 	chunk = wq->front->work;
 	unsigned char *serialized_chunk = f->serialize(chunk,&size);
@@ -156,7 +156,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		// Send chunks of work to all the workers unless you encounter null
 		start_time = MPI_Wtime();
 		for(wid=1;wid<sz;wid++){
-			send_work(wid,wq);
+			send_work(wid,wq,f);
 		}
 		n_chunks = i;
 		//printf("total_workers %d\n",sz-1);
@@ -182,7 +182,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 			  	i++;
 			  	// if work left assign new work
 			  	if(queue_empty(wq) == FALSE){
-			  		send_work(wid,wq);
+			  		send_work(wid,wq,f);
 			  	}
 			  	else{
 			  		break;
