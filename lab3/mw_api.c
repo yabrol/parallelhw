@@ -164,22 +164,29 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		// Wait for the results
 		result_unit **results = (result_unit **)malloc((n_chunks)*sizeof(result_unit *));
 		i=0;
-		for(wid=1;wid<sz;wid++){
-			
-			result_unit *r = (result_unit *)malloc(f->res_sz);
-			//printf("wait %d\n",wid);
-			int result_size;
-			MPI_Probe(wid, TAG_RESULT, MPI_COMM_WORLD, &status);
-			MPI_Get_count(&status, MPI_BYTE, &result_size);
+		int results_to_fetch = sz;
+		while(results_to_fetch>1){
+			for(wid=1;wid<results_to_fetch;wid++){
+				result_unit *r = (result_unit *)malloc(f->res_sz);
+				//printf("wait %d\n",wid);
+				int result_size;
+				MPI_Probe(wid, TAG_RESULT, MPI_COMM_WORLD, &status);
+				MPI_Get_count(&status, MPI_BYTE, &result_size);
 
-			unsigned char *serialized_result = (unsigned char *)malloc(result_size);
-			MPI_Recv(serialized_result, result_size, MPI_BYTE, wid, TAG_RESULT, MPI_COMM_WORLD, &status);
-			// deserialize result
-		  	r = f->deserialize_result(serialized_result,result_size);	
-			//printf("done %d\n",wid);
-			results[i]=r;
-			i++;
-			//free(r);
+				unsigned char *serialized_result = (unsigned char *)malloc(result_size);
+				MPI_Recv(serialized_result, result_size, MPI_BYTE, wid, TAG_RESULT, MPI_COMM_WORLD, &status);
+				// deserialize result
+			  	r = f->deserialize_result(serialized_result,result_size);	
+				//printf("done %d\n",wid);
+				results[i]=r;
+				i++;
+				if(queue_empty(wq) == FALSE){
+			  		send_work(wid,wq,f);
+			  		results_to_fetch++;
+			  	}
+			  	results_to_fetch--;
+				//free(r);
+			}
 		}
 		// terminate all workers
 		for(i=1;i<sz;i++){
