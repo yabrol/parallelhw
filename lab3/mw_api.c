@@ -150,46 +150,38 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		}
 		int wid=1;
 		int n_chunks;
+		int size;
 		double start_time, end_time, delta;
 		// Have queues for work units to be done
 
 		// Send chunks of work to all the workers unless you encounter null
 		start_time = MPI_Wtime();
-		for(wid=1;wid<sz;wid++){
+		while(queue_empty(wq)!=TRUE){
 			send_work(wid,wq,f);
+			wid = 1 + (wid)%(sz-1);
 		}
 		n_chunks = i;
 		//printf("total_workers %d\n",sz-1);
 		// Wait for the results
 		result_unit **results = (result_unit **)malloc((n_chunks)*sizeof(result_unit *));
 		wid=0;
-		i=0;
-		while(queue_empty(wq) == FALSE){
-			for(wid=1;wid<sz;wid++){
-				
-				result_unit *r = (result_unit *)malloc(f->res_sz);
-				//wid = 1 + (wid)%(sz-1);
-				//printf("wait %d\n",wid);
-				int result_size;
-				MPI_Probe(wid, TAG_RESULT, MPI_COMM_WORLD, &status);
-				MPI_Get_count(&status, MPI_BYTE, &result_size);
+		for(i=0;i<n_chunks;i++){
+			
+			result_unit *r = (result_unit *)malloc(f->res_sz);
+			wid = 1 + (wid)%(sz-1);
+			//printf("wait %d\n",wid);
+			int result_size;
+			MPI_Probe(wid, TAG_RESULT, MPI_COMM_WORLD, &status);
+			MPI_Get_count(&status, MPI_BYTE, &result_size);
 
-				unsigned char *serialized_result = (unsigned char *)malloc(result_size);
-				MPI_Recv(serialized_result, result_size, MPI_BYTE, wid, TAG_RESULT, MPI_COMM_WORLD, &status);
-				// deserialize result
-			  	r = f->deserialize_result(serialized_result,result_size);
-			  	results[i]=r;
-			  	i++;
-			  	// if work left assign new work
-			  	if(queue_empty(wq) == FALSE){
-			  		send_work(wid,wq,f);
-			  	}
-			  	else{
-			  		break;
-			  	}
-				//printf("done %d\n",wid);
-				//free(r);
-			}
+			unsigned char *serialized_result = (unsigned char *)malloc(result_size);
+			MPI_Recv(serialized_result, result_size, MPI_BYTE, wid, TAG_RESULT, MPI_COMM_WORLD, &status);
+			// deserialize result
+		  	r = f->deserialize_result(serialized_result,result_size);	
+			//printf("done %d\n",wid);
+			results[i]=r;
+		
+			//free(r);
 		}
 		// terminate all workers
 		for(i=1;i<sz;i++){
