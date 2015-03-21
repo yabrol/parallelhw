@@ -120,7 +120,7 @@ work_unit* deserialize_work(unsigned char *serialized_work,int size){
 
 work_unit** create_work(int argc, char **argv){
 	//printf("Here\n");	
-	int size = 7;
+	int size = 5;
 	mpz_t big_num, big_sqrt;
 	mpz_init(big_num);
 	mpz_init(big_sqrt);
@@ -132,8 +132,8 @@ work_unit** create_work(int argc, char **argv){
 	mpz_init_set_str(big_num,argv[1],10);
 	
 	// Calculate the square root
-	mpz_sqrt(big_sqrt,big_num);
  	num  = mpz_get_ui(big_num);
+	mpz_sqrt(big_sqrt,big_num);
 	sqrt =  mpz_get_ui(big_sqrt);
 	//gmp_printf("%Zd  %Zd\n",big_num,big_sqrt);
 	// from 1 to square root divide it into chunks
