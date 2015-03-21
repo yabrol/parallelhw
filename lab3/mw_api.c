@@ -164,7 +164,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		// Wait for the results
 		result_unit **results = (result_unit **)malloc((n_chunks)*sizeof(result_unit *));
 		i=0;
-		for(wid=0;wid<sz;wid++){
+		for(wid=1;wid<sz;wid++){
 			
 			result_unit *r = (result_unit *)malloc(f->res_sz);
 			//printf("wait %d\n",wid);
