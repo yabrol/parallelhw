@@ -88,7 +88,7 @@ unsigned char* serialize_work(work_unit *work,int *size){
 		memcpy(serialized_work,&(work->numbers[i]),sizeof(unsigned long));
 		serialized_work += sizeof(unsigned long);
 	}*/
-	printf("done serializing work\n");
+	//printf("done serializing work\n");
 	// return the byte stream
 	
 	return start;
@@ -169,7 +169,7 @@ int process_results(int sz, result_unit **res){
 		//printf(" length in compile %d\n", res[i]->length );
 		for(j=0;j<(res[i]->length);j++){
 			result = res[i]->factors[j];
-		//	printf("Factors!! %lu\n",result);
+			printf("Factors!! %lu\n",result);
 		}
 	}
 	//printf("%lu\n",result);
@@ -185,7 +185,7 @@ result_unit* do_work(work_unit *work){
 	res->length = 0;
 	for(i=work->first;i<=(work->end);i++){
 		if((work->num)%(i) == 0){
-			printf("Factor %lu\n",i);
+			//printf("Factor %lu\n",i);
 			res->factors[j++] = i;
 			//res->factors[j++] = (work->num)/i;
 			res->length+=1;
