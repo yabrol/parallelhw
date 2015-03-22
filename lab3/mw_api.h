@@ -1,5 +1,5 @@
-//#ifndef mw_api_h
-//#define mw_api_h
+#ifndef mw_api_h
+#define mw_api_h
 
 struct work_t; /* definition provided by user */
 struct result_t; /* definition provided by user */
@@ -39,4 +39,4 @@ struct mw_api_spec {
 void MW_Run (int argc, char **argv, struct mw_api_spec *f); /* run master-worker */
 void testing();
 
-//#endif
+#endif

@@ -1,4 +1,5 @@
 #include "mw_api.h"
+#include "queue.h"
 #include <stdio.h>
 #include <mpi.h>
 #include <stdlib.h>
@@ -13,110 +14,6 @@
 
 int random_fail();
 int F_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, int myid);
-
-typedef struct work_node_t{
-	work_unit *work;
-	struct work_node_t *next;
-} work_node;
-
-typedef struct work_queue_node_t
-{
-	/* data */
-	work_node *front, *rear;
-} work_queue_node, *work_queue;
-
-
-work_queue queue_create(void)
-{
-  work_queue queue;
-  queue = (work_queue)malloc(sizeof(work_queue_node));
-  if (queue == NULL) {
-    fprintf(stderr, "Insufficient memory for new queue.\n");
-    exit(1);  /* Exit program, returning error code. */
-  }
-  queue->front = queue->rear = NULL;
-  return queue;
-}
-
-int queue_empty(work_queue queue){
-	if(queue == NULL)
-		return TRUE;
-	if(queue->front == NULL)
-		return TRUE;
-	return FALSE;
-}
-
-void dequeue(work_queue queue)
-{
-	if(queue == NULL){
-		printf("Queue Pointer Empty");
-		return;
-	}
-	if(queue_empty(queue) == TRUE){
-		printf("Queue Empty");
-		return;
-	}
-	else{
-		//check for one element
-		if(queue->front == queue->rear){
-			queue->front = NULL;
-			queue->rear = NULL;
-			return;
-		}
-		else{
-			queue->front = (queue->front)->next;
-		}
-	}
-
-}
-
-void queue_destroy(work_queue queue)
-{
-  /*
-   * First remove each element from the queue (each
-   * element is in a dynamically-allocated node.)
-   */
-  while (!queue_empty(queue))
-    dequeue(queue);
-
-  /*
-   * Reset the front and rear just in case someone
-   * tries to use them after the CDT is freed.
-   */
-  queue->front = queue->rear = NULL;
-
-  /*
-   * Now free the structure that holds information
-   * about the queue.
-   */
-  free(queue);
-}
-
-void enqueue(work_queue queue, work_unit *work)
-{
-  work_node *new_work;
-
-  /* Allocate space for a node in the linked list. */
-  new_work = (work_node *)malloc(sizeof(work_node));
-  if (new_work == NULL) {
-    fprintf(stderr, "Insufficient memory for new queue element.\n");
-    exit(1);  /* Exit program, returning error code. */
-  }
-  /* Place information in the node */
-  new_work->work = work;
-  new_work->next = NULL;
-  /*
-   * Link the element into the right place in
-   * the linked list.
-   */
-  if (queue->front == NULL) {  /* Queue is empty */
-    queue->front = queue->rear = new_work;
-  }
-  else {
-    queue->rear->next = new_work;
-    queue->rear = new_work;
-  }
-}
 
 void send_work(int wid,work_queue wq,struct mw_api_spec *f){
 	int size;
@@ -162,9 +59,37 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		// Wait for the results
 		result_unit **results = (result_unit **)malloc((n_chunks)*sizeof(result_unit *));
 		i=0;
-		int new_results_to_fetch = sz;
+		int new_results_to_fetch = sz-1;
 		printf("sz %d\n",new_results_to_fetch);
+		
+		while(new_results_to_fetch){
+			result_unit *r = (result_unit *)malloc(f->res_sz);
+			int result_size;
+			MPI_Probe(MPI_ANY_SOURCE, TAG_RESULT, MPI_COMM_WORLD, &status);
+			MPI_Get_count(&status, MPI_BYTE, &result_size);
+			wid = status.MPI_SOURCE;
 
+			unsigned char *serialized_result = (unsigned char *)malloc(result_size);
+			MPI_Recv(serialized_result, result_size, MPI_BYTE, wid, TAG_RESULT, MPI_COMM_WORLD, &status);
+			new_results_to_fetch--;
+			
+			// deserialize result
+		  	r = f->deserialize_result(serialized_result,result_size);	
+			printf("done %d\n",wid);
+			results[i]=r;
+			i++;
+
+			if(queue_empty(wq) == FALSE){
+		  		send_work(wid,wq,f);
+		  		new_results_to_fetch++;
+		  	}
+		}
+
+		/*
+		Below commented piece of code gives issues when worker fails
+		Master gets stuck on the dead process and doesn't get results from the other processes
+		*/
+		/*
 		while(new_results_to_fetch>1){
 			int results_to_fetch = new_results_to_fetch;
 			new_results_to_fetch = 1;
@@ -189,6 +114,8 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 			  	//free(r);
 			}
 		}
+		*/
+		
 
 		// terminate all workers
 		for(i=1;i<sz;i++){
@@ -233,7 +160,6 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 				// serialize result
 				unsigned char *serialized_result  = f->serialize_result(w_r,&len);
 				//printf("serialized length %d\n",(int)(*serialized_result));
-				//temp remove this next line
 				//MPI_Send(serialized_result, len, MPI_BYTE, MASTER_ID, TAG_RESULT, MPI_COMM_WORLD);
 				//FAIL THE WORKER
 				F_Send(serialized_result, len, MPI_BYTE, MASTER_ID, TAG_RESULT, MPI_COMM_WORLD, myid);
@@ -265,11 +191,11 @@ int F_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_C
 //can be implemented using the built-in random number generator and comparing the value returned to the threshold p
 int random_fail(int myid){
 	// get random number seeded by system time and process rank
-	// http://scicomp.stackexchange.com/questions/1274/how-can-i-seed-a-parallel-linear-congruential-pseudo-random-number-generator-for
+	// source: http://scicomp.stackexchange.com/questions/1274/how-can-i-seed-a-parallel-linear-congruential-pseudo-random-number-generator-for
 	srand(abs(((time(NULL)*181)*((myid-83)*359))%104729));
 	int randomNum = rand() % 101;
 
-	int p = 80;//change as needed
+	int p = 101;//change as needed
 
 	if(randomNum > p)
 	{
