@@ -15,6 +15,13 @@
 #define TAG_HEARTBEAT 2
 
 int random_fail();
+typedef struct worker_t{
+	int pid;
+	int status;
+	int work_id;
+	int last_seen;
+} worker;
+
 int F_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, int myid);
 
 void send_heartbeat ()
@@ -24,11 +31,14 @@ void send_heartbeat ()
 	MPI_Send(&beat, 1, MPI_BYTE, MASTER_ID, TAG_HEARTBEAT, MPI_COMM_WORLD);
 }
 
-void send_work(int wid,work_queue wq,struct mw_api_spec *f){
+void send_work(int wid,work_queue wq,struct mw_api_spec *f, worker *workers){
 	int size;
 	work_unit *chunk = (work_unit *)malloc(f->work_sz);
 	chunk = wq->front->work;
 	unsigned char *serialized_chunk = f->serialize(chunk,&size);
+	workers[wid-1]->pid = wid;
+	workers[wid-1]->status = 1;
+	workers[wid-1]->work_id = wq->front->id;
 	//printf("Serializing done %lu\n",(int)(*serialized_chunk));
 	MPI_Send(serialized_chunk, size, MPI_CHAR, wid, TAG_WORK, MPI_COMM_WORLD );
 	//printf("Process %d out of %d\n", wid, sz);
@@ -45,6 +55,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 
 	if(myid == MASTER_ID){
 		// Get pool of work
+		worker workers[sz-1];
 		work_unit **work;
 		work = f->create(argc,argv);
 		work_queue wq;
@@ -52,7 +63,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		// put work into the queue
 		int i=0;
 		while(work[i]!=NULL){
-			enqueue(wq,work[i]);
+			enqueue(wq,work[i],i);
 			i++;
 		}
 		int wid=1;
@@ -63,7 +74,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		// Send chunks of work to all the workers unless you encounter null
 		start_time = MPI_Wtime();
 		for(wid=1;wid<sz;wid++){
-			send_work(wid,wq,f);
+			send_work(wid,wq,f,&workers);
 		}
 		n_chunks = i;
 		// Wait for the results
@@ -90,7 +101,8 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 				i++;
 
 				if(queue_empty(wq) == FALSE){
-			  		send_work(wid,wq,f);
+			  		send_work(wid,wq,f,&workers);
+
 			  		new_results_to_fetch++;
 			  	}
 		  	}

@@ -73,7 +73,7 @@ void queue_destroy(work_queue queue)
   free(queue);
 }
 
-void enqueue(work_queue queue, work_unit *work)
+void enqueue(work_queue queue, work_unit *work, int id)
 {
   work_node *new_work;
 
@@ -85,6 +85,7 @@ void enqueue(work_queue queue, work_unit *work)
   }
   /* Place information in the node */
   new_work->work = work;
+  new_work->id = id;
   new_work->next = NULL;
   /*
    * Link the element into the right place in
