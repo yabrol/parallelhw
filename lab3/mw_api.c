@@ -12,6 +12,7 @@
 #define TAG_TERMINATE 99
 
 int random_fail();
+int F_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, int myid);
 
 typedef struct work_node_t{
 	work_unit *work;
@@ -125,7 +126,6 @@ void send_work(int wid,work_queue wq,struct mw_api_spec *f){
 	//printf("Serializing done %lu\n",(int)(*serialized_chunk));
 	MPI_Send(serialized_chunk, size, MPI_CHAR, wid, TAG_WORK, MPI_COMM_WORLD );
 	//printf("Process %d out of %d\n", wid, sz);
-	//wid = 1 + (wid)%(sz-1);
 	free(serialized_chunk);
 	free(chunk);
 	dequeue(wq);
@@ -138,7 +138,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 	MPI_Status status;
 	if(myid == MASTER_ID){
 		// Get pool of work
-		work_unit **work;// = (work_unit *)malloc(f->work_sz);
+		work_unit **work;
 		work = f->create(argc,argv);
 		work_queue wq;
 		wq = queue_create();
@@ -153,19 +153,17 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		int size;
 		double start_time, end_time, delta;
 		// Have queues for work units to be done
-
 		// Send chunks of work to all the workers unless you encounter null
 		start_time = MPI_Wtime();
 		for(wid=1;wid<sz;wid++){
 			send_work(wid,wq,f);
 		}
 		n_chunks = i;
-		//printf("total_workers %d\n",sz-1);
 		// Wait for the results
 		result_unit **results = (result_unit **)malloc((n_chunks)*sizeof(result_unit *));
 		i=0;
 		int new_results_to_fetch = sz;
-				printf("sz %d\n",new_results_to_fetch);
+		printf("sz %d\n",new_results_to_fetch);
 
 		while(new_results_to_fetch>1){
 			int results_to_fetch = new_results_to_fetch;
@@ -191,6 +189,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 			  	//free(r);
 			}
 		}
+
 		// terminate all workers
 		for(i=1;i<sz;i++){
 			work_unit *chunk = (work_unit *)malloc(f->work_sz);
@@ -235,9 +234,9 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 				unsigned char *serialized_result  = f->serialize_result(w_r,&len);
 				//printf("serialized length %d\n",(int)(*serialized_result));
 				//temp remove this next line
-				MPI_Send(serialized_result, len, MPI_BYTE, MASTER_ID, TAG_RESULT, MPI_COMM_WORLD);
+				//MPI_Send(serialized_result, len, MPI_BYTE, MASTER_ID, TAG_RESULT, MPI_COMM_WORLD);
 				//FAIL THE WORKER
-				//F_Send(serialized_result, len, MPI_BYTE, MASTER_ID, TAG_RESULT, MPI_COMM_WORLD);
+				F_Send(serialized_result, len, MPI_BYTE, MASTER_ID, TAG_RESULT, MPI_COMM_WORLD, myid);
 				free(w_r);
 				free(w_work);
 			}
@@ -251,9 +250,10 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 	}
 }
 
-int F_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm)
+int F_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, int myid)
 {
-	if (random_fail()) {      
+	if (random_fail(myid)) {
+		printf("%d going down\n", myid);      
 		MPI_Finalize();
 		exit (0);
 		return 0;
@@ -263,9 +263,10 @@ int F_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_C
 }
 
 //can be implemented using the built-in random number generator and comparing the value returned to the threshold p
-int random_fail(){
-	//get random number seeded by system time
-	srand(time(NULL));//if things break, we can remove this line so seed will always be 1, but each time same numbers will be generated
+int random_fail(int myid){
+	// get random number seeded by system time and process rank
+	// http://scicomp.stackexchange.com/questions/1274/how-can-i-seed-a-parallel-linear-congruential-pseudo-random-number-generator-for
+	srand(abs(((time(NULL)*181)*((myid-83)*359))%104729));
 	int randomNum = rand() % 101;
 
 	int p = 80;//change as needed
@@ -277,4 +278,3 @@ int random_fail(){
 		return FALSE;
 	}
 }
-
