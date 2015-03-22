@@ -16,7 +16,7 @@
 int random_fail();
 int F_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, int myid);
 
-void send_heartbeat (int signum)
+void send_heartbeat ()
 {
  static int count = 0;
  printf ("timer expired %d times\n", ++count);
@@ -148,6 +148,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 					}	
 					else{
 						// send heartbeat
+						send_heartbeat();
 						printf("partially complete and work first after partial result %lu for processor %d\n",f->work_first(w_work),myid);
 					}
 				}
