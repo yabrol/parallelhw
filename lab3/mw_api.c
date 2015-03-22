@@ -193,9 +193,11 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		}
 		// terminate all workers
 		for(i=1;i<sz;i++){
-			work_unit *chunk;
+			work_unit *chunk = (work_unit *)malloc(f->work_sz);
 			MPI_Send(chunk, f->work_sz, MPI_BYTE, i, TAG_TERMINATE, MPI_COMM_WORLD );
+			free(chunk);
 		}
+
 		// compile the results together
 		int compilation_status=0;
 		compilation_status = f->compile(n_chunks,results);
