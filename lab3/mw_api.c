@@ -12,14 +12,16 @@
 #define TAG_WORK 0
 #define TAG_RESULT 1
 #define TAG_TERMINATE 99
+#define TAG_HEARTBEAT 2
 
 int random_fail();
 int F_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, int myid);
 
 void send_heartbeat ()
 {
- static int count = 0;
- printf ("timer expired %d times\n", ++count);
+	printf("Send heartbeat\n");
+	char beat = 'a';
+	MPI_Send(&beat, 1, MPI_BYTE, MASTER_ID, TAG_HEARTBEAT, MPI_COMM_WORLD);
 }
 
 void send_work(int wid,work_queue wq,struct mw_api_spec *f){
@@ -71,25 +73,31 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		printf("sz %d\n",new_results_to_fetch);
 		
 		while(new_results_to_fetch){
-			result_unit *r = (result_unit *)malloc(f->res_sz);
 			int result_size;
-			MPI_Probe(MPI_ANY_SOURCE, TAG_RESULT, MPI_COMM_WORLD, &status);
+			MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 			MPI_Get_count(&status, MPI_BYTE, &result_size);
 			wid = status.MPI_SOURCE;
+			if(status.MPI_TAG == TAG_RESULT){
+				unsigned char *serialized_result = (unsigned char *)malloc(result_size);
+				MPI_Recv(serialized_result, result_size, MPI_BYTE, wid, TAG_RESULT, MPI_COMM_WORLD, &status);
+				new_results_to_fetch--;
+				result_unit *r = (result_unit *)malloc(f->res_sz);
+				
+				// deserialize result
+			  	r = f->deserialize_result(serialized_result,result_size);	
+				printf("done %d\n",wid);
+				results[i]=r;
+				i++;
 
-			unsigned char *serialized_result = (unsigned char *)malloc(result_size);
-			MPI_Recv(serialized_result, result_size, MPI_BYTE, wid, TAG_RESULT, MPI_COMM_WORLD, &status);
-			new_results_to_fetch--;
-			
-			// deserialize result
-		  	r = f->deserialize_result(serialized_result,result_size);	
-			printf("done %d\n",wid);
-			results[i]=r;
-			i++;
-
-			if(queue_empty(wq) == FALSE){
-		  		send_work(wid,wq,f);
-		  		new_results_to_fetch++;
+				if(queue_empty(wq) == FALSE){
+			  		send_work(wid,wq,f);
+			  		new_results_to_fetch++;
+			  	}
+		  	}
+		  	else if(status.MPI_TAG == TAG_HEARTBEAT){
+		  		char beat;
+		  		MPI_Recv(&beat, result_size, MPI_BYTE, wid, TAG_HEARTBEAT, MPI_COMM_WORLD, &status);
+		  		printf("processor %d alive and sent %c\n",wid,beat);
 		  	}
 		}
 
@@ -193,7 +201,7 @@ int random_fail(int myid){
 	srand(abs(((time(NULL)*181)*((myid-83)*359))%104729));
 	int randomNum = rand() % 101;
 
-	int p = 101;//change as needed
+	int p = 80;//change as needed
 
 	if(randomNum > p)
 	{
