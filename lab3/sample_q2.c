@@ -5,6 +5,9 @@
 #include "mw_api.h"
 #include <string.h>
 
+#define PARTIAL 0
+#define COMPLETE 1
+
 struct work_t {
 	unsigned long first; // pointer to array of numbers to check
 	unsigned long end;
@@ -14,6 +17,7 @@ struct work_t {
 
 struct result_t {
    	unsigned long *factors; // pointer to array of factors
+   	int state;
 	int length;
 };
 
@@ -22,7 +26,7 @@ unsigned char* serialize_result(result_unit *res,int *size){
 	unsigned char *start;
 	unsigned long i,length;
 	// calculate the total size of work unit and allocate that much memory
-	length = (sizeof(int)); // for length 
+	length = 2*(sizeof(int)); // for length and state 
 	length += (res->length) * sizeof(unsigned long); // for the array containing the factors
 	*size = (int)length;
 	// allocate memory for char array
@@ -33,6 +37,10 @@ unsigned char* serialize_result(result_unit *res,int *size){
 	memcpy(serialized_result,&(res->length),sizeof(int));
 	serialized_result += sizeof(int);
 	
+	// copy state and move the pointer
+	memcpy(serialized_result,&(res->state),sizeof(int));
+	serialized_result += sizeof(int);
+
 	// copy the factors array
 	for(i=0;i<res->length;i++){
 		memcpy(serialized_result,&(res->factors[i]),sizeof(unsigned long));
@@ -50,6 +58,12 @@ result_unit* deserialize_result(unsigned char *serialized_result,int size){
 	// copy value of length
 	memcpy(&(res->length),serialized_result,sizeof(int));
 	serialized_result += sizeof(int);
+
+	// copy value of state
+	memcpy(&(res->state),serialized_result,sizeof(int));
+
+	serialized_result += sizeof(int);
+
 	// allocate memory for factors
 	res->factors = (unsigned long *)malloc( sizeof(unsigned long) * (res->length));
 	// copy the factors array
@@ -119,7 +133,7 @@ work_unit* deserialize_work(unsigned char *serialized_work,int size){
 }
 
 work_unit** create_work(int argc, char **argv){
-	//printf("Here\n");	
+	// number of chunks -1
 	int size = 5;
 	mpz_t big_num, big_sqrt;
 	mpz_init(big_num);
@@ -182,8 +196,18 @@ result_unit* do_work(work_unit *work){
 	res->factors = (unsigned long *)malloc(sizeof(unsigned long) * ((work->end)-(work->first)));
 	unsigned long i;
 	int j=0;
+	double start_time = MPI_Wtime();
 	res->length = 0;
+	double timeout = .000005;
+	printf("doing work with first %lu\n", work->first);
 	for(i=work->first;i<=(work->end);i++){
+		if((MPI_Wtime() - start_time)>timeout){
+			realloc(res->factors,(res->length)*sizeof(unsigned long));
+			res->state = PARTIAL;
+			(work->first) = i;
+			//printf("doing work \n");
+			return res;	
+		}
 		if((work->num)%(i) == 0){
 			//printf("Factor %lu\n",i);
 			res->factors[j++] = i;
@@ -192,9 +216,43 @@ result_unit* do_work(work_unit *work){
 		}
 	}
 	realloc(res->factors,(res->length)*sizeof(unsigned long));
+	(work->first) = i;
+	res->state = COMPLETE;
 	//printf("doing work \n");
 	return res;
 }
+
+int get_result_state(result_unit *res){
+	return res->state;
+}
+
+unsigned long get_work_first(work_unit *work){
+	return work->first;
+}
+
+result_unit *get_result_object(){
+	result_unit* res = (result_unit *)malloc(sizeof(result_unit));
+	res->length = 0;
+	res->state = PARTIAL;
+	return res;
+}
+
+result_unit *combine_partial_results(result_unit *r1,result_unit *r2){
+	result_unit* res = (result_unit *)malloc(sizeof(result_unit));
+	int i,j;
+	res->length = r1->length + r2->length;
+	res->factors = (unsigned long *)malloc(sizeof(unsigned long) * (res->length) );
+	for(i=0,j=0;j<r1->length;i++,j++){
+		res->factors[i] = r1->factors[j];
+	}
+	
+	for(j=0;j<r2->length;i++,j++){
+		res->factors[i] = r2->factors[j];
+	}
+	res->state = (r1->state) + (r2->state);
+	return res;
+}
+
 
 int main (int argc, char **argv)
 {
@@ -210,7 +268,10 @@ int main (int argc, char **argv)
   f.deserialize_result = deserialize_result;
   f.work_sz = sizeof (work_unit);
   f.res_sz = sizeof (result_unit);
-
+  f.get_result_state = get_result_state;
+  f.work_first = get_work_first;
+  f.get_result_object = get_result_object;
+  f.combine_partial_results = combine_partial_results;
   //printf("Here\n");
   MPI_Init (&argc, &argv);
   //testing();

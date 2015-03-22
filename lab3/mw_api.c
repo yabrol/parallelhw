@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <mpi.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #define TRUE 1
@@ -14,6 +15,12 @@
 
 int random_fail();
 int F_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, int myid);
+
+void send_heartbeat (int signum)
+{
+ static int count = 0;
+ printf ("timer expired %d times\n", ++count);
+}
 
 void send_work(int wid,work_queue wq,struct mw_api_spec *f){
 	int size;
@@ -33,6 +40,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 	MPI_Comm_size(MPI_COMM_WORLD, &sz);
   	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 	MPI_Status status;
+
 	if(myid == MASTER_ID){
 		// Get pool of work
 		work_unit **work;
@@ -85,38 +93,6 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		  	}
 		}
 
-		/*
-		Below commented piece of code gives issues when worker fails
-		Master gets stuck on the dead process and doesn't get results from the other processes
-		*/
-		/*
-		while(new_results_to_fetch>1){
-			int results_to_fetch = new_results_to_fetch;
-			new_results_to_fetch = 1;
-			for(wid=1;wid<results_to_fetch;wid++){
-				result_unit *r = (result_unit *)malloc(f->res_sz);
-				printf("wait %d\n",wid);
-				int result_size;
-				MPI_Probe(wid, TAG_RESULT, MPI_COMM_WORLD, &status);
-				MPI_Get_count(&status, MPI_BYTE, &result_size);
-
-				unsigned char *serialized_result = (unsigned char *)malloc(result_size);
-				MPI_Recv(serialized_result, result_size, MPI_BYTE, wid, TAG_RESULT, MPI_COMM_WORLD, &status);
-				// deserialize result
-			  	r = f->deserialize_result(serialized_result,result_size);	
-				printf("done %d\n",wid);
-				results[i]=r;
-				i++;
-				if(queue_empty(wq) == FALSE){
-			  		send_work(wid,wq,f);
-			  		new_results_to_fetch++;
-			  	}
-			  	//free(r);
-			}
-		}
-		*/
-		
-
 		// terminate all workers
 		for(i=1;i<sz;i++){
 			work_unit *chunk = (work_unit *)malloc(f->work_sz);
@@ -136,8 +112,9 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 	else{
 		MPI_Status status_w,status_size;
 		work_unit *w_work;
-		result_unit *w_r;
+		result_unit *w_r,*temp_result;
 		int size;
+		
 		while(TRUE){
 			// http://mpitutorial.com/tutorials/dynamic-receiving-with-mpi-probe-and-mpi-status/
 			MPI_Probe(MASTER_ID, MPI_ANY_TAG, MPI_COMM_WORLD, &status_size);
@@ -150,29 +127,49 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 			// if work tag received
 			// Compute the results 
 			if(status_w.MPI_TAG == TAG_WORK){
-				w_r = (result_unit *)malloc(f->res_sz);
+				w_r = f->get_result_object();
+				temp_result = f->get_result_object();
 				//printf("start deserializing\n");
 				w_work = f->deserialize(serialized_work,size);
-				w_r = f->compute(w_work);
-				
+				/*
+				get back a result object which has the information whether it's a partial or complete result
+				if it's a partial result send out heartbeat and resume work
+				*/
+				unsigned char *serialized_result;
 				int len;
+
+				while(TRUE){
+					temp_result = f->compute(w_work);
+					// combine results
+					w_r = f->combine_partial_results(temp_result,w_r);
+					if(f->get_result_state(temp_result) == 1){
+						printf("completed work and first is %lu for processor %d\n",f->work_first(w_work),myid);
+						break;
+					}	
+					else{
+						// send heartbeat
+						printf("partially complete and work first after partial result %lu for processor %d\n",f->work_first(w_work),myid);
+					}
+				}
 				// Send it back to the master
 				// serialize result
-				unsigned char *serialized_result  = f->serialize_result(w_r,&len);
+				serialized_result = f->serialize_result(w_r,&len);
+
 				//printf("serialized length %d\n",(int)(*serialized_result));
 				//MPI_Send(serialized_result, len, MPI_BYTE, MASTER_ID, TAG_RESULT, MPI_COMM_WORLD);
 				//FAIL THE WORKER
 				F_Send(serialized_result, len, MPI_BYTE, MASTER_ID, TAG_RESULT, MPI_COMM_WORLD, myid);
 				free(w_r);
+				free(temp_result);
 				free(w_work);
 			}
 			// if termination tag received cleanup
 			if(status_w.MPI_TAG == TAG_TERMINATE){
-				//printf("terminate %d\n",myid);
 				free(w_work);
 				break;
 			}
 		}
+		printf("terminate %d\n",myid);
 	}
 }
 

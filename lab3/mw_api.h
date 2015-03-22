@@ -32,6 +32,10 @@ struct mw_api_spec {
       /*taking the byte stream and returns the result_unit. 
       size will contain the size of the character stream. 
       needed for communication between master and workers*/
+   int (*get_result_state)(result_unit *res);
+   unsigned long (*work_first)(work_unit *work);
+   result_unit *(*combine_partial_results)(result_unit *r1,result_unit *r2);
+   result_unit *(*get_result_object)();
    int work_sz, res_sz; 
       /* size in bytes of the work structure and result structure, needed to send/receive messages */
 };
