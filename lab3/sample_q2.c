@@ -198,8 +198,8 @@ result_unit* do_work(work_unit *work){
 	int j=0;
 	double start_time = MPI_Wtime();
 	res->length = 0;
-	double timeout = .000005;
-	printf("doing work with first %lu\n", work->first);
+	double timeout = .00050;
+	// printf("doing work with first %lu\n", work->first);
 	for(i=work->first;i<=(work->end);i++){
 		if((MPI_Wtime() - start_time)>timeout){
 			realloc(res->factors,(res->length)*sizeof(unsigned long));

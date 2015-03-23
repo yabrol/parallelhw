@@ -27,25 +27,30 @@ int queue_empty(work_queue queue){
 	return FALSE;
 }
 
-void dequeue(work_queue queue)
+work_node *dequeue(work_queue queue)
 {
 	if(queue == NULL){
 		printf("Queue Pointer Empty");
-		return;
+		return NULL;
 	}
 	if(queue_empty(queue) == TRUE){
 		printf("Queue Empty");
-		return;
+		return NULL;
 	}
 	else{
 		//check for one element
 		if(queue->front == queue->rear){
-			queue->front = NULL;
+			work_node *temp = queue->front;
+      queue->front = NULL;
 			queue->rear = NULL;
-			return;
+      temp->next = NULL;
+			return temp;
 		}
 		else{
+      work_node *temp = queue->front;
 			queue->front = (queue->front)->next;
+      temp->next = NULL;
+      return temp;
 		}
 	}
 
@@ -73,8 +78,7 @@ void queue_destroy(work_queue queue)
   free(queue);
 }
 
-void enqueue(work_queue queue, work_unit *work)
-{
+work_node *get_work_node(work_unit *work, int id){
   work_node *new_work;
 
   /* Allocate space for a node in the linked list. */
@@ -85,7 +89,70 @@ void enqueue(work_queue queue, work_unit *work)
   }
   /* Place information in the node */
   new_work->work = work;
+  new_work->id = id;
   new_work->next = NULL;
+  return new_work;
+}
+
+work_node *dequeue_by_id(work_queue queue, int id){
+  if(queue == NULL){
+    printf("Queue Pointer Empty");
+    return NULL;
+  }
+  if(queue_empty(queue) == TRUE){
+    printf("Queue Empty");
+    return NULL;
+  }
+  else{
+    //check for one element
+    work_node *ptr = queue->front;
+    work_node *prev = NULL;
+    while(ptr!=NULL){
+      if(ptr->id == id){
+          //check for one element
+          if(queue->front == queue->rear){
+            work_node *temp = queue->front;
+            queue->front = NULL;
+            queue->rear = NULL;
+            temp->next = NULL;
+            return temp;
+          }
+          else{
+            if(ptr == queue->front){
+              work_node *temp;
+              temp = queue->front;
+              queue->front = queue->front->next;
+              temp->next = NULL;
+              return temp;
+            }
+            else if(ptr == queue->rear)
+            {
+              work_node *temp = ptr;
+              queue->rear = prev;
+              prev->next = NULL;
+              temp->next = NULL;
+              return temp;
+            }
+            else{
+              work_node *temp = ptr;
+              prev->next = ptr->next;
+              temp->next = NULL;
+              return temp;
+            }
+          } 
+      }
+      else{
+        prev = ptr;
+        ptr = ptr->next;
+      }
+    }
+    return prev;
+  }
+}
+
+void enqueue(work_queue queue, work_node *new_work)
+{
+  
   /*
    * Link the element into the right place in
    * the linked list.
