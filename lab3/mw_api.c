@@ -24,6 +24,7 @@ typedef struct processor_t{
 	int work_id;
 	int is_master;
 	double last_seen;
+	int missed_count;
 } processor;
 
 processor init_processor(int pid,int status,int work_id,int is_master){
@@ -33,21 +34,43 @@ processor init_processor(int pid,int status,int work_id,int is_master){
 	p.work_id = work_id;
 	p.is_master = is_master;
 	p.last_seen = MPI_Wtime();
+	p.missed_count = 0;
 	return p;
 }
 
-void get_lost_work(processor processors[],work_queue pwq, work_queue wq){
+int is_any_processor_busy(processor processors[]){
 	int i=0;
-	double timeout = .0100;
+	double timeout = .00050;
+	while(processors[i].pid!=-1){
+		processor p = processors[i];
+		if((p.is_master == FALSE) && (p.status!= IDLE) && (p.status!= DEAD)){
+			return TRUE;
+		}
+		i++;
+	}
+	return FALSE;
+}
+
+void get_lost_work(processor processors[],work_queue pwq, work_queue wq,double current_time){
+	int i=0;
+	double timeout = .00050;
 	while(processors[i].pid!=-1){
 		processor p = processors[i];
 		
 		if((p.is_master == FALSE) && (p.status!= DEAD)){
-			if((MPI_Wtime()- p.last_seen) > timeout){
-				p.status = DEAD;
-				printf("Processor %d failed and moving work %d\n", p.pid,p.work_id);
-				work_node *lost_work = dequeue_by_id(pwq,p.work_id);
-				enqueue(wq, lost_work);
+			printf("checking for %d %.5f %.5f\n",p.pid,MPI_Wtime(),p.last_seen);
+		
+			if((current_time - p.last_seen) > timeout){
+					processors[i].missed_count += 1;
+				if(processors[i].missed_count >1){
+					processors[i].status = DEAD;
+
+					printf("Processor %d failed and moving work %d\n", p.pid,p.work_id);
+					work_node *lost_work = dequeue_by_id(pwq,p.work_id);
+					enqueue(wq, lost_work);
+				}
+				
+				
 			}
 			else{
 				printf("I'm alive!!!!!!!!!!!!!!!!!!\n");
@@ -63,7 +86,7 @@ void send_heartbeat (int myid)
 {
 	printf("Send heartbeat %d\n",myid);
 	char beat = 'a';
-	MPI_Send(&beat, 1, MPI_BYTE, MASTER_ID, TAG_HEARTBEAT, MPI_COMM_WORLD);
+	F_Send(&beat, 1, MPI_BYTE, MASTER_ID, TAG_HEARTBEAT, MPI_COMM_WORLD, myid);
 }
 
 
@@ -115,8 +138,6 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		double start_time, end_time, delta;
 		// Have queues for work units to be done
 		// Send chunks of work to all the workers unless you encounter null
-		start_time = MPI_Wtime();
-		double timeout = .0100;
 		for(wid=1;wid<sz;wid++){
 			send_work(wid,wq,f,processors,pwq);
 		}
@@ -125,19 +146,28 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		result_unit **results = (result_unit **)malloc((n_chunks)*sizeof(result_unit *));
 		i=0;
 		int new_results_to_fetch = sz-1;
+		double current_time;
 		printf("sz %d\n",new_results_to_fetch);
+		start_time = MPI_Wtime();
+		double timeout = .0010;
 		
 		while(new_results_to_fetch){
-				if( (MPI_Wtime() - start_time) > timeout ){
-					// check for dead workers and change their status
-					//work_lost = 
-					get_lost_work(processors,pwq,wq);
-					// get the work pice from processed queue and put it back on to work queue
-				}
+
 			int result_size;
 			int flag=0;
-			while(!flag){
 
+			while(!flag){
+				current_time = MPI_Wtime();
+				if( (current_time - start_time) > timeout ){
+					// check for dead workers and change their status
+					//work_lost = 
+					get_lost_work(processors,pwq,wq,current_time);
+					start_time = current_time;
+					// get the work pice from processed queue and put it back on to work queue
+				}
+				if(is_any_processor_busy(processors) == FALSE){
+					break;
+				}
 				MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
 			}
 			MPI_Get_count(&status, MPI_BYTE, &result_size);
@@ -161,7 +191,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		  	else if(status.MPI_TAG == TAG_HEARTBEAT){
 		  		char beat;
 		  		MPI_Recv(&beat, result_size, MPI_BYTE, wid, TAG_HEARTBEAT, MPI_COMM_WORLD, &status);
-		  			printf("recv heartbeat\n");
+		  			printf("recv heartbeat %d\n",wid);
 		  		// update the worker array
 		  		processors[wid].last_seen = MPI_Wtime(); 
 		  		printf("processor %d %.11f alive and sent %c\n",processors[wid].pid,processors[wid].last_seen,beat);
@@ -268,7 +298,7 @@ int random_fail(int myid){
 	srand(abs(((time(NULL)*181)*((myid-83)*359))%104729));
 	int randomNum = rand() % 101;
 
-	int p = 80;//change as needed
+	int p = 70;//change as needed
 
 	if(randomNum > p)
 	{
