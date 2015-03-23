@@ -4,7 +4,6 @@
 typedef struct work_node_t{
    work_unit *work;
    int id;
-   result_unit *res;
    struct work_node_t *next;
 } work_node;
 
@@ -17,8 +16,10 @@ typedef struct work_queue_node_t
 
 work_queue queue_create(void);
 int queue_empty(work_queue queue);
-void dequeue(work_queue queue);
+work_node *dequeue(work_queue queue);
 void queue_destroy(work_queue queue);
-void enqueue(work_queue queue, work_unit *work,int id);
+void enqueue(work_queue queue, work_node *new_work);
+work_node *get_work_node(work_unit *work, int id);
+
 
 #endif
