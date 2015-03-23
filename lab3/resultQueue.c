@@ -1,5 +1,5 @@
 #include "mw_api.h"
-#include "queue.h"
+#include "resultQueue.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -73,7 +73,7 @@ void queue_destroy(result_queue queue)
   free(queue);
 }
 
-void enqueue(result_queue queue, result_unit *result)
+void enqueue(result_queue queue, result_unit *result, int id)
 {
   result_node *new_result;
 
@@ -86,6 +86,7 @@ void enqueue(result_queue queue, result_unit *result)
   /* Place information in the node */
   new_result->result = result;
   new_result->next = NULL;
+  new_result->workID = id;
   /*
    * Link the element into the right place in
    * the linked list.
