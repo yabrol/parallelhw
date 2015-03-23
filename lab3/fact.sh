@@ -5,5 +5,5 @@ mpicc -g sample_q2.o mw_api.o queue.o -o sample_q2 -lgmp
 #./sample
 for i in `seq 5 5`;
 do
-	mpirun -np $i sample_q2 4000000
+	mpirun -np $i sample_q2 40000000000
 done

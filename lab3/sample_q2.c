@@ -134,7 +134,7 @@ work_unit* deserialize_work(unsigned char *serialized_work,int size){
 
 work_unit** create_work(int argc, char **argv){
 	// number of chunks -1
-	int size = 10;
+	int size = 5;
 	mpz_t big_num, big_sqrt;
 	mpz_init(big_num);
 	mpz_init(big_sqrt);
@@ -198,7 +198,7 @@ result_unit* do_work(work_unit *work){
 	int j=0;
 	double start_time = MPI_Wtime();
 	res->length = 0;
-	double timeout = .000010;
+	double timeout = .00050;
 	// printf("doing work with first %lu\n", work->first);
 	for(i=work->first;i<=(work->end);i++){
 		if((MPI_Wtime() - start_time)>timeout){

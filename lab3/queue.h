@@ -20,6 +20,6 @@ work_node *dequeue(work_queue queue);
 void queue_destroy(work_queue queue);
 void enqueue(work_queue queue, work_node *new_work);
 work_node *get_work_node(work_unit *work, int id);
-
+work_node *dequeue_by_id(work_queue queue, int id);
 
 #endif

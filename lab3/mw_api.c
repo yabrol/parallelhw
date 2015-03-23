@@ -26,26 +26,28 @@ typedef struct processor_t{
 	double last_seen;
 } processor;
 
-processor init_processor(int pid,int status,int work_id,int is_master,double last_seen){
+processor init_processor(int pid,int status,int work_id,int is_master){
 	processor p;
 	p.pid = pid;
 	p.status = status;
 	p.work_id = work_id;
 	p.is_master = is_master;
-	p.last_seen = last_seen;
+	p.last_seen = MPI_Wtime();
 	return p;
 }
 
-void get_lost_work(processor processors[]){
+void get_lost_work(processor processors[],work_queue pwq, work_queue wq){
 	int i=0;
-	double timeout = .000030;
+	double timeout = .0100;
 	while(processors[i].pid!=-1){
 		processor p = processors[i];
 		
 		if((p.is_master == FALSE) && (p.status!= DEAD)){
 			if((MPI_Wtime()- p.last_seen) > timeout){
 				p.status = DEAD;
-				printf("Processor %d failed and had to do %d work\n", p.pid,p.work_id);
+				printf("Processor %d failed and moving work %d\n", p.pid,p.work_id);
+				work_node *lost_work = dequeue_by_id(pwq,p.work_id);
+				enqueue(wq, lost_work);
 			}
 			else{
 				printf("I'm alive!!!!!!!!!!!!!!!!!!\n");
@@ -57,9 +59,9 @@ void get_lost_work(processor processors[]){
 
 int F_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, int myid);
 
-void send_heartbeat ()
+void send_heartbeat (int myid)
 {
-	printf("Send heartbeat\n");
+	printf("Send heartbeat %d\n",myid);
 	char beat = 'a';
 	MPI_Send(&beat, 1, MPI_BYTE, MASTER_ID, TAG_HEARTBEAT, MPI_COMM_WORLD);
 }
@@ -72,12 +74,12 @@ void send_work(int wid,work_queue wq,struct mw_api_spec *f, processor processors
 	chunk = wq->front->work;
 	unsigned char *serialized_chunk = f->serialize(chunk,&size);
 
-	processors[wid] =  init_processor(wid,BUSY,wq->front->id,FALSE,-1);
 	//printf("Serializing done %lu\n",(int)(*serialized_chunk));
 	MPI_Send(serialized_chunk, size, MPI_CHAR, wid, TAG_WORK, MPI_COMM_WORLD );
 	//printf("Process %d out of %d\n", wid, sz);
 	free(serialized_chunk);
 	free(chunk);
+	processors[wid] =  init_processor(wid,BUSY,wq->front->id,FALSE);
 	work_node *temp = dequeue(wq);
 	printf("temp->id %d\n",temp->id);
 	enqueue(pwq,temp);
@@ -92,9 +94,9 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 	if(myid == MASTER_ID){
 		// Get pool of work
 		processor processors[sz+1];
-		processor master = init_processor(MASTER_ID,BUSY,-1,TRUE,MPI_Wtime());
+		processor master = init_processor(MASTER_ID,BUSY,-1,TRUE);
 		processors[MASTER_ID] = master;
-		processors[sz] = init_processor(-1,BUSY,-1,TRUE,MPI_Wtime());;
+		processors[sz] = init_processor(-1,BUSY,-1,TRUE);
 		work_unit **work;
 		work = f->create(argc,argv);
 		work_queue wq,pwq;
@@ -114,7 +116,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		// Have queues for work units to be done
 		// Send chunks of work to all the workers unless you encounter null
 		start_time = MPI_Wtime();
-		double timeout = .000030;
+		double timeout = .0100;
 		for(wid=1;wid<sz;wid++){
 			send_work(wid,wq,f,processors,pwq);
 		}
@@ -126,14 +128,18 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		printf("sz %d\n",new_results_to_fetch);
 		
 		while(new_results_to_fetch){
-			if( (MPI_Wtime() - start_time) > timeout ){
-				// check for dead workers and change their status
-				//work_lost = 
-				get_lost_work(processors);
-				// get the work pice from processed queue and put it back on to work queue
-			}
+				if( (MPI_Wtime() - start_time) > timeout ){
+					// check for dead workers and change their status
+					//work_lost = 
+					get_lost_work(processors,pwq,wq);
+					// get the work pice from processed queue and put it back on to work queue
+				}
 			int result_size;
-			MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+			int flag=0;
+			while(!flag){
+
+				MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
+			}
 			MPI_Get_count(&status, MPI_BYTE, &result_size);
 			wid = status.MPI_SOURCE;
 			if(status.MPI_TAG == TAG_RESULT){
@@ -146,16 +152,16 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 				printf("done %d\n",wid);
 				results[i]=r;
 				i++;
-
+				processors[wid].status = IDLE;
 				if(queue_empty(wq) == FALSE){
 			  		send_work(wid,wq,f,processors,pwq);
-
 			  		new_results_to_fetch++;
 			  	}
 		  	}
 		  	else if(status.MPI_TAG == TAG_HEARTBEAT){
 		  		char beat;
 		  		MPI_Recv(&beat, result_size, MPI_BYTE, wid, TAG_HEARTBEAT, MPI_COMM_WORLD, &status);
+		  			printf("recv heartbeat\n");
 		  		// update the worker array
 		  		processors[wid].last_seen = MPI_Wtime(); 
 		  		printf("processor %d %.11f alive and sent %c\n",processors[wid].pid,processors[wid].last_seen,beat);
@@ -217,7 +223,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 					}	
 					else{
 						// send heartbeat
-						send_heartbeat();
+						send_heartbeat(myid);
 						// printf("partially complete and work first after partial result %lu for processor %d\n",f->work_first(w_work),myid);
 					}
 				}

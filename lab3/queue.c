@@ -94,6 +94,62 @@ work_node *get_work_node(work_unit *work, int id){
   return new_work;
 }
 
+work_node *dequeue_by_id(work_queue queue, int id){
+  if(queue == NULL){
+    printf("Queue Pointer Empty");
+    return NULL;
+  }
+  if(queue_empty(queue) == TRUE){
+    printf("Queue Empty");
+    return NULL;
+  }
+  else{
+    //check for one element
+    work_node *ptr = queue->front;
+    work_node *prev = NULL;
+    while(ptr!=NULL){
+      if(ptr->id == id){
+          //check for one element
+          if(queue->front == queue->rear){
+            work_node *temp = queue->front;
+            queue->front = NULL;
+            queue->rear = NULL;
+            temp->next = NULL;
+            return temp;
+          }
+          else{
+            if(ptr == queue->front){
+              work_node *temp;
+              temp = queue->front;
+              queue->front = queue->front->next;
+              temp->next = NULL;
+              return temp;
+            }
+            else if(ptr == queue->rear)
+            {
+              work_node *temp = ptr;
+              queue->rear = prev;
+              prev->next = NULL;
+              temp->next = NULL;
+              return temp;
+            }
+            else{
+              work_node *temp = ptr;
+              prev->next = ptr->next;
+              temp->next = NULL;
+              return temp;
+            }
+          } 
+      }
+      else{
+        prev = ptr;
+        ptr = ptr->next;
+      }
+    }
+    return prev;
+  }
+}
+
 void enqueue(work_queue queue, work_node *new_work)
 {
   
