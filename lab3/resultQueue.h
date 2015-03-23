@@ -14,10 +14,10 @@ typedef struct result_queue_node_t
 } result_queue_node, *result_queue;
 
 
-result_queue queue_create(void);
-int queue_empty(result_queue queue);
-void dequeue(result_queue queue);
-void queue_destroy(result_queue queue);
-void enqueue(result_queue queue, result_unit *result, int id);
+result_queue rQueue_create(void);
+int rQueue_empty(result_queue queue);
+void rDequeue(result_queue queue);
+void rQueue_destroy(result_queue queue);
+void rEnqueue(result_queue queue, result_unit *result, int id);
 
 #endif

@@ -1,5 +1,6 @@
 #include "mw_api.h"
 #include "queue.h"
+#include "resultQueue.h"
 #include <stdio.h>
 #include <mpi.h>
 #include <stdlib.h>
@@ -64,8 +65,10 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 			send_work(wid,wq,f);
 		}
 		n_chunks = i;
-		// Wait for the results
+		// Wait for the results=
 		result_unit **results = (result_unit **)malloc((n_chunks)*sizeof(result_unit *));
+		result_queue rq;
+		rq = rQueue_create();
 		i=0;
 		int new_results_to_fetch = sz-1;
 		printf("sz %d\n",new_results_to_fetch);
@@ -85,6 +88,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		  	r = f->deserialize_result(serialized_result,result_size);	
 			printf("done %d\n",wid);
 			results[i]=r;
+			rEnqueue(rq,results[i],wid);
 			i++;
 
 			if(queue_empty(wq) == FALSE){

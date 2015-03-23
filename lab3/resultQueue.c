@@ -7,7 +7,7 @@
 #define TRUE 1
 #define FALSE 0
 
-result_queue queue_create(void)
+result_queue rQueue_create(void)
 {
   result_queue queue;
   queue = (result_queue)malloc(sizeof(result_queue_node));
@@ -19,7 +19,7 @@ result_queue queue_create(void)
   return queue;
 }
 
-int queue_empty(result_queue queue){
+int rQueue_empty(result_queue queue){
 	if(queue == NULL)
 		return TRUE;
 	if(queue->front == NULL)
@@ -27,13 +27,13 @@ int queue_empty(result_queue queue){
 	return FALSE;
 }
 
-void dequeue(result_queue queue)
+void rDequeue(result_queue queue)
 {
 	if(queue == NULL){
 		printf("Queue Pointer Empty");
 		return;
 	}
-	if(queue_empty(queue) == TRUE){
+	if(rQueue_empty(queue) == TRUE){
 		printf("Queue Empty");
 		return;
 	}
@@ -51,14 +51,14 @@ void dequeue(result_queue queue)
 
 }
 
-void queue_destroy(result_queue queue)
+void rQueue_destroy(result_queue queue)
 {
   /*
    * First remove each element from the queue (each
    * element is in a dynamically-allocated node.)
    */
-  while (!queue_empty(queue))
-    dequeue(queue);
+  while (!rQueue_empty(queue))
+    rDequeue(queue);
 
   /*
    * Reset the front and rear just in case someone
@@ -73,7 +73,7 @@ void queue_destroy(result_queue queue)
   free(queue);
 }
 
-void enqueue(result_queue queue, result_unit *result, int id)
+void rEnqueue(result_queue queue, result_unit *result, int id)
 {
   result_node *new_result;
 

@@ -1,8 +1,8 @@
 mpicc -c sample_q2.c -o sample_q2.o
 mpicc -c mw_api.c -o mw_api.o
 mpicc -c queue.c -o queue.o
-# mpicc -c resultQueue.c -o resultQueue.o
-mpicc -g sample_q2.o mw_api.o queue.o -o sample_q2 -lgmp
+mpicc -c resultQueue.c -o resultQueue.o
+mpicc -g sample_q2.o mw_api.o queue.o resultQueue.o -o sample_q2 -lgmp
 
 mpirun -np 4 sample_q2 900000000000
 #./sample
