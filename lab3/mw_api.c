@@ -107,7 +107,8 @@ void send_work(int wid,work_queue wq,struct mw_api_spec *f, processor processors
 	processors[wid] =  init_processor(wid,BUSY,wq->front->id,FALSE);
 	work_node *temp = dequeue(wq);
 	printf("temp->id %d\n",temp->id);
-	write_workList(temp);
+	// write_workList(temp);
+	write_workList(serialized_chunk);
 	enqueue(pwq,temp);
 }
 

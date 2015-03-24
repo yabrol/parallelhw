@@ -1,22 +1,21 @@
 #include "mw_api.h"
-#include "sample_q2.h"
 #include "queue.h"
 #include "fileio.h"
 #include "resultQueue.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <string.h>
 
-void write_workList(work_node_pt workNode){
+void write_workList(unsigned char *serial_work){
 	FILE *workList = fopen("workList.txt", "ab+");
 	if (workList == NULL)
 	{
 		printf("Error opening file!\n");
 		exit(1);
 	}
-
-	
-
+	int charLength = strlen(serial_work);
+	fprintf(workList, "%s\t%d\n", serial_work, charLength);
 
 	// //the file is structured in tab deliminated
 	// //workID   first   end   num
