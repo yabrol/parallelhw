@@ -103,7 +103,11 @@ void get_lost_work(processor processors[],work_queue pwq, work_queue wq,double c
 					processors[i].missed_count += 1;
 				if(processors[i].missed_count >1){
 					processors[i].status = DEAD;
-
+		  			printf("terminate cause assumed dead\n");
+					work_unit *chunk = (work_unit *)malloc(f->work_sz);
+					MPI_Send(chunk, f->work_sz, MPI_BYTE, p.pid, TAG_TERMINATE, MPI_COMM_WORLD );
+					
+					free(chunk);
 					(*n_results)--;
 					printf("Processor %d failed and moving work %d\n", p.pid,p.work_id);
 					//print_queue(pwq);
