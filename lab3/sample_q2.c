@@ -9,8 +9,9 @@
 #define COMPLETE 1
 
 struct work_t {
-	unsigned long first;
+	unsigned long first; 
 	unsigned long end;
+	unsigned long temp;
 	//unsigned long length; // length of the array
 	unsigned long num; // number for which the factors need to be calculated
 };
@@ -82,7 +83,7 @@ unsigned char* serialize_work(work_unit *work,int *size){
 	unsigned char *start;
 	// calculate the total size of work unit and allocate that much memory
 	unsigned long i,length;
-	length = 3*(sizeof(unsigned long)); // for length and num
+	length = 4*(sizeof(unsigned long)); // for length and num
 	*size = (int)length;
 	// allocate memory for char array
 	serialized_work  = (unsigned char *)malloc(sizeof(unsigned char)*length);
@@ -96,6 +97,10 @@ unsigned char* serialize_work(work_unit *work,int *size){
 	
 	memcpy(serialized_work,&(work->end),sizeof(unsigned long));
 	serialized_work += sizeof(unsigned long);
+	
+	memcpy(serialized_work,&(work->temp),sizeof(unsigned long));
+	serialized_work += sizeof(unsigned long);
+
 	memcpy(serialized_work,&(work->num),sizeof(unsigned long));
 	// copy the number array
 	/*for(i=0;i<work->length;i++){
@@ -120,6 +125,9 @@ work_unit* deserialize_work(unsigned char *serialized_work,int size){
 	memcpy(&(work->end),serialized_work,sizeof(unsigned long));
 	serialized_work += sizeof(unsigned long);
 	
+	memcpy(&(work->temp),serialized_work,sizeof(unsigned long));
+	serialized_work += sizeof(unsigned long);
+	
 	memcpy(&(work->num),serialized_work,sizeof(unsigned long));
 	//serialized_work += sizeof(unsigned long);
 	// copy the number array
@@ -134,7 +142,7 @@ work_unit* deserialize_work(unsigned char *serialized_work,int size){
 
 work_unit** create_work(int argc, char **argv){
 	// number of chunks -1
-	int size = 5;
+	int size = 8;
 	mpz_t big_num, big_sqrt;
 	mpz_init(big_num);
 	mpz_init(big_sqrt);
@@ -167,6 +175,7 @@ work_unit** create_work(int argc, char **argv){
 		}
 		temp->end = count-1;
 		temp->num = num;
+		temp->temp = temp->first;
 		//temp->length = unit_size;
 		t[i]=temp;
 	}
@@ -230,6 +239,11 @@ unsigned long get_work_first(work_unit *work){
 	return work->first;
 }
 
+void reinit_work(work_unit *work){
+	work->first = work->temp;
+	return;
+}
+
 result_unit *get_result_object(){
 	result_unit* res = (result_unit *)malloc(sizeof(result_unit));
 	res->length = 0;
@@ -272,6 +286,7 @@ int main (int argc, char **argv)
   f.work_first = get_work_first;
   f.get_result_object = get_result_object;
   f.combine_partial_results = combine_partial_results;
+  f.reinit = reinit_work;
   //printf("Here\n");
   MPI_Init (&argc, &argv);
   //testing();

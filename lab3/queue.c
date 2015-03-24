@@ -27,30 +27,33 @@ int queue_empty(work_queue queue){
 	return FALSE;
 }
 
-work_node *dequeue(work_queue queue)
+void dequeue(work_queue queue)
 {
 	if(queue == NULL){
 		printf("Queue Pointer Empty");
-		return NULL;
+		return;// NULL;
 	}
 	if(queue_empty(queue) == TRUE){
 		printf("Queue Empty");
-		return NULL;
+		return;// NULL;
 	}
 	else{
 		//check for one element
 		if(queue->front == queue->rear){
-			work_node *temp = queue->front;
+			//work_node *temp = queue->front;
+      //work_node *temp = get_work_node(queue->front->work,queue->front->id);
       queue->front = NULL;
 			queue->rear = NULL;
-      temp->next = NULL;
-			return temp;
+      //temp->next = NULL;
+			//free(temp);
+      return;// temp;
 		}
 		else{
-      work_node *temp = queue->front;
+      //work_node *temp = queue->front;
 			queue->front = (queue->front)->next;
-      temp->next = NULL;
-      return temp;
+      //temp->next = NULL;
+      //free(temp);
+      return;// temp;
 		}
 	}
 
@@ -104,17 +107,16 @@ work_node *dequeue_by_id(work_queue queue, int id){
     return NULL;
   }
   else{
-    //check for one element
     work_node *ptr = queue->front;
     work_node *prev = NULL;
     while(ptr!=NULL){
       if(ptr->id == id){
           //check for one element
           if(queue->front == queue->rear){
-            work_node *temp = queue->front;
+            work_node *temp = get_work_node(queue->front->work,queue->front->id);
             queue->front = NULL;
             queue->rear = NULL;
-            temp->next = NULL;
+            //temp->next = NULL;
             return temp;
           }
           else{
@@ -127,9 +129,10 @@ work_node *dequeue_by_id(work_queue queue, int id){
             }
             else if(ptr == queue->rear)
             {
+              printf("element at rear\n");
               work_node *temp = ptr;
               queue->rear = prev;
-              prev->next = NULL;
+              queue->rear->next = NULL;
               temp->next = NULL;
               return temp;
             }
@@ -152,7 +155,11 @@ work_node *dequeue_by_id(work_queue queue, int id){
 
 void enqueue(work_queue queue, work_node *new_work)
 {
-  
+  //work_node *new_work;
+
+  /* Allocate space for a node in the linked list. */
+  //new_work = (work_node *)malloc(sizeof(work_node));
+  //new_work = n_work;
   /*
    * Link the element into the right place in
    * the linked list.
@@ -163,5 +170,13 @@ void enqueue(work_queue queue, work_node *new_work)
   else {
     queue->rear->next = new_work;
     queue->rear = new_work;
+  }
+}
+
+void print_queue(work_queue queue){
+work_node* temp = queue->front;
+  while(temp){
+    printf("work id %d on queue\n", temp->id);
+    temp = temp->next;
   }
 }
