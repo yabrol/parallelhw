@@ -155,7 +155,7 @@ void send_work(int wid,work_queue wq,struct mw_api_spec *f, processor processors
 	MPI_Send(serialized_chunk, size, MPI_BYTE, wid, TAG_WORK, MPI_COMM_WORLD );
 	//printf("Process %d out of %d\n", wid, sz);
 	free(serialized_chunk);
-	//free(chunk);
+	free(chunk);
 	processors[wid] =  init_processor(wid,BUSY,wq->front->id,FALSE);
 	dequeue(wq);
 
