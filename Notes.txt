@@ -1,0 +1,2 @@
+//to run
+mpirun -np 4 hello
