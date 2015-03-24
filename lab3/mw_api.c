@@ -166,15 +166,8 @@ void send_work(int wid,work_queue wq,struct mw_api_spec *f, processor processors
 	//enqueue(pwq,temp);
 }
 
-void MW_Run (int argc, char **argv, struct mw_api_spec *f){
-	int sz, myid;
-	MPI_Comm_size(MPI_COMM_WORLD, &sz);
-  	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-	MPI_Status status;
-
-	if(myid == MASTER_ID){
-		// Get pool of work
-
+void master(int sz,int argc, char **argv, struct mw_api_spec *f){
+		MPI_Status status;
 		processor processors[sz+1];
 		processor master = init_processor(MASTER_ID,BUSY,-1,TRUE);
 		processors[MASTER_ID] = master;
@@ -352,7 +345,18 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		queue_destroy(pwq);
 		end_time = MPI_Wtime();
 		delta = end_time - start_time;
-		printf("%.11f\n",delta);
+		printf("%.11f\n",delta);	
+}
+
+void MW_Run (int argc, char **argv, struct mw_api_spec *f){
+	int sz, myid;
+	MPI_Comm_size(MPI_COMM_WORLD, &sz);
+  	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+
+	if(myid == MASTER_ID){
+		// Get pool of work
+		master(sz,argc,argv,f);
+
 	}
 	else{
 		MPI_Status status_w,status_size;
