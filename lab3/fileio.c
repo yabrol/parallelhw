@@ -1,4 +1,5 @@
 #include "mw_api.h"
+#include "sample_q2.h"
 #include "queue.h"
 #include "fileio.h"
 #include "resultQueue.h"
@@ -8,14 +9,20 @@
 
 int counter = 0;
 
-void write_workList(work_node_pt work){
+void write_workList(work_node_pt workNode){
 	FILE *workList = fopen("workList.txt", "ab+");
 	if (workList == NULL)
 	{
 		printf("Error opening file!\n");
 		exit(1);
 	}
-	fprintf(workList, "%d) Work ID: %d\n",++counter, work->id);
+	fprintf(workList, "Work ID: %d\n", workNode->id);
+	//work unit is pointer to array of numbers, length, and number
+	fprintf(workList, "Work Unit: {\n");
+	fprintf(workList, "First: %lu\n", workNode->work->first);
+	fprintf(workList, "End: %lu\n", workNode->work->end);
+	fprintf(workList, "Num: %lu\n", workNode->work->num);
+	fprintf(workList, "}\n\n");
 	fclose(workList);
 }
 

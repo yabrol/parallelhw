@@ -3,23 +3,24 @@
 #include <stdlib.h>
 #include <gmp.h>
 #include "mw_api.h"
+#include "sample_q2.h"
 #include <string.h>
 
 #define PARTIAL 0
 #define COMPLETE 1
 
-struct work_t {
-	unsigned long first; // pointer to array of numbers to check
-	unsigned long end;
-	//unsigned long length; // length of the array
-	unsigned long num; // number for which the factors need to be calculated
-};
+// struct work_t {
+// 	unsigned long first;
+// 	unsigned long end;
+// 	//unsigned long length; // length of the array
+// 	unsigned long num; // number for which the factors need to be calculated
+// };
 
-struct result_t {
-   	unsigned long *factors; // pointer to array of factors
-   	int state;
-	int length;
-};
+// struct result_t {
+//    	unsigned long *factors; // pointer to array of factors
+//    	int state;
+// 	int length;
+// };
 
 unsigned char* serialize_result(result_unit *res,int *size){
 	unsigned char *serialized_result;
