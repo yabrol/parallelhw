@@ -250,11 +250,11 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 					//work_lost = 
 					// print the entire work array first
 					int j=0;
-					while(backup_work[j]!=NULL){
-						printf("at timeout work %d has first %lu\n", j, f->work_first(backup_work[j]));
+					while(work[j]!=NULL){
+						printf("at timeout work %d has first %lu\n", j, f->work_first(work[j]));
 						j++;
 					}
-					get_lost_work(processors,pwq,wq,current_time,&new_results_to_fetch,backup_work,f);
+					get_lost_work(processors,pwq,wq,current_time,&new_results_to_fetch,work,f);
 					printf("new_results_to_fetch %d\n", new_results_to_fetch);
 					start_time = current_time;
 					// get the work pice from processed queue and put it back on to work queue
@@ -293,8 +293,8 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 					unsigned char *serialized_result = (unsigned char *)malloc(result_size);
 					MPI_Recv(serialized_result, result_size, MPI_BYTE, wid, TAG_RESULT, MPI_COMM_WORLD, &status);
 					int l=0;
-			  		while(backup_work[l]!=NULL){
-						printf("work %d has first %lu after resulr from %d\n", l, f->work_first(backup_work[l]), wid);
+			  		while(work[l]!=NULL){
+						printf("work %d has first %lu after resulr from %d\n", l, f->work_first(work[l]), wid);
 						l++;
 					}
 					new_results_to_fetch--;
@@ -314,8 +314,8 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 			  		// update the worker array
 			  		processors[wid].last_seen = MPI_Wtime();
 			  		int k=0;
-			  		while(backup_work[k]!=NULL){
-						printf("work %d has first %lu\n", k, f->work_first(backup_work[k]));
+			  		while(work[k]!=NULL){
+						printf("work %d has first %lu\n", k, f->work_first(work[k]));
 						k++;
 					} 
 			  		printf("processor %d %.11f alive and sent %c\n",processors[wid].pid,processors[wid].last_seen,beat);
