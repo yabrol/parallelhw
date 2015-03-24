@@ -146,7 +146,7 @@ void send_work(int wid,work_queue wq,struct mw_api_spec *f, processor processors
 
 	printf("temp->id %d\n",wq->front->id);
 	//chunk = temp->work;
-	printf("dequeued work first %lu\n",f->work_first(chunk));
+	printf("dequeued work first %lu\n",f->work_first(wq->front->work));
 	unsigned char *serialized_chunk = f->serialize(chunk,&size);
 
 	printf("Serializing done %d\n",(int)(*serialized_chunk));
@@ -188,6 +188,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		while(work[i]!=NULL){
 			work_node *temp_work_node = get_work_node(work[i],i);
 			enqueue(wq,temp_work_node);
+			printf(" %d has first %lu\n", i, f->work_first(wq->front->work));
 			i++;
 		}
 		print_queue(wq);
@@ -201,6 +202,8 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		while(queue_empty(pwq)==FALSE){
 
 			enqueue(wq,pwq->front);
+			
+			printf(" has first %lu\n", f->work_first(wq->front->work));
 			dequeue(pwq);
 		}
 		print_queue(wq);

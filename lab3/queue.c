@@ -40,19 +40,19 @@ void dequeue(work_queue queue)
 	else{
 		//check for one element
 		if(queue->front == queue->rear){
-			work_node *temp = queue->front;
+			//work_node *temp = queue->front;
       //work_node *temp = get_work_node(queue->front->work,queue->front->id);
       queue->front = NULL;
 			queue->rear = NULL;
       //temp->next = NULL;
-			free(temp);
+			//free(temp);
       return;// temp;
 		}
 		else{
-      work_node *temp = queue->front;
+      //work_node *temp = queue->front;
 			queue->front = (queue->front)->next;
-      temp->next = NULL;
-      free(temp);
+      //temp->next = NULL;
+      //free(temp);
       return;// temp;
 		}
 	}
@@ -153,13 +153,13 @@ work_node *dequeue_by_id(work_queue queue, int id){
   }
 }
 
-void enqueue(work_queue queue, work_node *n_work)
+void enqueue(work_queue queue, work_node *new_work)
 {
-  work_node *new_work;
+  //work_node *new_work;
 
   /* Allocate space for a node in the linked list. */
-  new_work = (work_node *)malloc(sizeof(work_node));
-  new_work = n_work;
+  //new_work = (work_node *)malloc(sizeof(work_node));
+  //new_work = n_work;
   /*
    * Link the element into the right place in
    * the linked list.
