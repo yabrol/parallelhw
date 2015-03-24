@@ -362,66 +362,71 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		MPI_Status status_w,status_size;
 		work_unit *w_work;
 		result_unit *w_r,*temp_result;
-		int size;
+		int size,flag=0;
 		
 		while(TRUE){
+
 			// http://mpitutorial.com/tutorials/dynamic-receiving-with-mpi-probe-and-mpi-status/
-			MPI_Probe(MASTER_ID, MPI_ANY_TAG, MPI_COMM_WORLD, &status_size);
-			MPI_Get_count(&status_size, MPI_BYTE, &size);
-			w_work = (work_unit *)malloc(f->work_sz);
-			//printf("size message to receive%d\n",size);
-			unsigned char *serialized_work = (unsigned char *)malloc(sizeof(unsigned char)*size);
-			// Receive chunks of work
-			MPI_Recv(serialized_work,size, MPI_BYTE, MASTER_ID, MPI_ANY_TAG, MPI_COMM_WORLD, &status_w);
-			// if work tag received
-			// Compute the results 
-			if(status_w.MPI_TAG == TAG_WORK){
-				w_r = f->get_result_object();
-				temp_result = f->get_result_object();
-				printf("start deserializing\n");
-				w_work = f->deserialize(serialized_work,size);
-				printf("get work first after deserializing %lu\n", f->work_first(w_work));
-				/*
-				get back a result object which has the information whether it's a partial or complete result
-				if it's a partial result send out heartbeat and resume work
-				*/
-				unsigned char *serialized_result;
-				int len;
-
-				while(TRUE){
-					temp_result = f->compute(w_work);
-					// combine results
-					w_r = f->combine_partial_results(temp_result,w_r);
-					if(f->get_result_state(temp_result) == 1){
-						// printf("completed work and first is %lu for processor %d\n",f->work_first(w_work),myid);
-						break;
-					}	
-					else{
-						// send heartbeat
-						printf("last work first %d %lu\n", myid, f->work_first(w_work));
-						send_heartbeat(myid);
-						// printf("partially complete and work first after partial result %lu for processor %d\n",f->work_first(w_work),myid);
-					}
-				}
-				// Send it back to the master
-				// serialize result
-				serialized_result = f->serialize_result(w_r,&len);
-
-				//printf("serialized length %d\n",(int)(*serialized_result));
-				//MPI_Send(serialized_result, len, MPI_BYTE, MASTER_ID, TAG_RESULT, MPI_COMM_WORLD);
-				//FAIL THE WORKER
-				free(w_r);
-				free(temp_result);
-				printf("last work first %d %lu\n", myid, f->work_first(w_work));
-				//free(w_work);
-				printf("sending result_unit %d\n", myid);
-				F_Send(serialized_result, len, MPI_BYTE, MASTER_ID, TAG_RESULT, MPI_COMM_WORLD, myid);
-
+			while(!flag){
+			MPI_Iprobe(MASTER_ID, MPI_ANY_TAG, MPI_COMM_WORLD ,&flag, &status_size);
 			}
-			// if termination tag received cleanup
-			if(status_w.MPI_TAG == TAG_TERMINATE){
-				free(w_work);
-				break;
+			if(flag){
+				MPI_Get_count(&status_size, MPI_BYTE, &size);
+				w_work = (work_unit *)malloc(f->work_sz);
+				//printf("size message to receive%d\n",size);
+				unsigned char *serialized_work = (unsigned char *)malloc(sizeof(unsigned char)*size);
+				// Receive chunks of work
+				MPI_Recv(serialized_work,size, MPI_BYTE, MASTER_ID, MPI_ANY_TAG, MPI_COMM_WORLD, &status_w);
+				// if work tag received
+				// Compute the results 
+				if(status_w.MPI_TAG == TAG_WORK){
+					w_r = f->get_result_object();
+					temp_result = f->get_result_object();
+					printf("start deserializing\n");
+					w_work = f->deserialize(serialized_work,size);
+					printf("get work first after deserializing %lu\n", f->work_first(w_work));
+					/*
+					get back a result object which has the information whether it's a partial or complete result
+					if it's a partial result send out heartbeat and resume work
+					*/
+					unsigned char *serialized_result;
+					int len;
+
+					while(TRUE){
+						temp_result = f->compute(w_work);
+						// combine results
+						w_r = f->combine_partial_results(temp_result,w_r);
+						if(f->get_result_state(temp_result) == 1){
+							// printf("completed work and first is %lu for processor %d\n",f->work_first(w_work),myid);
+							break;
+						}	
+						else{
+							// send heartbeat
+							printf("last work first %d %lu\n", myid, f->work_first(w_work));
+							send_heartbeat(myid);
+							// printf("partially complete and work first after partial result %lu for processor %d\n",f->work_first(w_work),myid);
+						}
+					}
+					// Send it back to the master
+					// serialize result
+					serialized_result = f->serialize_result(w_r,&len);
+
+					//printf("serialized length %d\n",(int)(*serialized_result));
+					//MPI_Send(serialized_result, len, MPI_BYTE, MASTER_ID, TAG_RESULT, MPI_COMM_WORLD);
+					//FAIL THE WORKER
+					free(w_r);
+					free(temp_result);
+					printf("last work first %d %lu\n", myid, f->work_first(w_work));
+					//free(w_work);
+					printf("sending result_unit %d\n", myid);
+					F_Send(serialized_result, len, MPI_BYTE, MASTER_ID, TAG_RESULT, MPI_COMM_WORLD, myid);
+
+				}
+				// if termination tag received cleanup
+				if(status_w.MPI_TAG == TAG_TERMINATE){
+					free(w_work);
+					break;
+				}
 			}
 		}
 		printf("terminate %d\n",myid);
@@ -436,7 +441,8 @@ int F_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_C
 		exit (0);
 		return 0;
    } else {
-      return MPI_Send (buf, count, datatype, dest, tag, comm);
+   		MPI_Request request;
+      	return MPI_Send (buf, count, datatype, dest, tag, comm);
    }
 }
 
