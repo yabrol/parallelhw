@@ -5,7 +5,7 @@ typedef struct work_node_t{
    work_unit *work;
    int id;
    struct work_node_t *next;
-} work_node;
+} work_node, *work_node_pt;
 
 typedef struct work_queue_node_t
 {
