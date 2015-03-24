@@ -7,8 +7,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-int counter = 0;
-
 void write_workList(work_node_pt workNode){
 	FILE *workList = fopen("workList.txt", "ab+");
 	if (workList == NULL)
@@ -16,38 +14,80 @@ void write_workList(work_node_pt workNode){
 		printf("Error opening file!\n");
 		exit(1);
 	}
-	fprintf(workList, "Work ID: %d\n", workNode->id);
-	//work unit is pointer to array of numbers, length, and number
-	fprintf(workList, "Work Unit: {\n");
-	fprintf(workList, "First: %lu\n", workNode->work->first);
-	fprintf(workList, "End: %lu\n", workNode->work->end);
-	fprintf(workList, "Num: %lu\n", workNode->work->num);
-	fprintf(workList, "}\n\n");
+
+	
+
+
+	// //the file is structured in tab deliminated
+	// //workID   first   end   num
+	// fprintf(workList, "%d\t", workNode->id);//work ID
+	// //work unit is pointer to array of numbers, length, and number
+	// fprintf(workList, "%lu\t", workNode->work->first);//first
+	// fprintf(workList, "%lu\t", workNode->work->end);//end
+	// fprintf(workList, "%lu\n", workNode->work->num);//num
 	fclose(workList);
 }
 
-void write_workID(int id){
-	FILE *workID = fopen("workID.txt", "ab+");
+void write_completed_workID(int id){
+	FILE *workID = fopen("completedWorkID.txt", "ab+");
 	if (workID == NULL)
 	{
 		printf("Error opening file!\n");
 		exit(1);
 	}
-	fprintf(workID, "%d) Work ID: %d\n",++counter, id);
+	//this file only contains work IDs that have been completed
+	fprintf(workID, "%d\n",id);
 	fclose(workID);
 }
 
-void write_numbers(){
-	FILE *fp = fopen("numbers.txt", "ab+");
-	if( fp == NULL){
-		printf("Error opening file!\n");
-		exit(1);
-	}
-	srand(time(NULL));
-	int num;
-	for(int i = 0; i < 50; i++){
-		num = rand()%50;
-		fprintf(fp, "%d\n", num);
-	}
-	
-}
+// void write_remainingWork(){
+// 	FILE *workList = fopen("workList.txt", "ab+");
+// 	if (workList == NULL)
+// 	{
+// 		printf("Error opening file!\n");
+// 		exit(1);
+// 	}
+// 	rewind(workList);
+
+// 	FILE *workID = fopen("completedWorkID.txt", "ab+");
+// 	if (workID == NULL)
+// 	{
+// 		printf("Error opening file!\n");
+// 		exit(1);
+// 	}
+// 	rewind(workList);
+// 	int ch, number_of_lines = 0;
+// 	do 
+// 	{
+// 		ch = fgetc(myfile);
+// 		if(ch == '\n')
+// 			number_of_lines++;
+// 	} while (ch != EOF);
+// 	// last line doesn't end with a new line!
+// 	// but there has to be a line at least before the last line
+// 	if(ch != '\n' && number_of_lines != 0) 
+// 		number_of_lines++;
+// 	rewind(workID);
+// 	int completedIDs[number_of_lines];
+// 	int id;
+// 	int i = 0;
+// 	unsigned long firstNum, endNum, numNum;
+// 	//put compledted ids in an array
+// 	while(fscanf(workID, "%d", &id) != EOF){
+// 		completedIDs[i] = id;
+// 	}
+
+// 	FILE *remainingWork = fopen("remainingWork.txt", "w");
+// 	if (workID == NULL)
+// 	{
+// 		printf("Error opening file!\n");
+// 		exit(1);
+// 	}
+// 	//now 
+// 	while(fscanf(workID, "%d", &id) != EOF){
+// 		completedIDs[i] = id;
+// 	}
+
+// }
+
+

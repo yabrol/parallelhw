@@ -107,7 +107,6 @@ void send_work(int wid,work_queue wq,struct mw_api_spec *f, processor processors
 	processors[wid] =  init_processor(wid,BUSY,wq->front->id,FALSE);
 	work_node *temp = dequeue(wq);
 	printf("temp->id %d\n",temp->id);
-	write_workID(temp->id);
 	write_workList(temp);
 	enqueue(pwq,temp);
 }
@@ -188,6 +187,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 				printf("done %d\n",wid);
 				results[i]=r;
 				i++;
+				// write_completed_workID(wid);
 				processors[wid].status = IDLE;
 				if(queue_empty(wq) == FALSE){
 			  		send_work(wid,wq,f,processors,pwq);
