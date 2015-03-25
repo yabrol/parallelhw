@@ -287,6 +287,7 @@ int main (int argc, char **argv)
   f.get_result_object = get_result_object;
   f.combine_partial_results = combine_partial_results;
   f.reinit = reinit_work;
+  f.work_ptr_sz = sizeof(work_unit*);
   //printf("Here\n");
   MPI_Init (&argc, &argv);
   //testing();

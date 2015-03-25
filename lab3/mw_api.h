@@ -37,7 +37,7 @@ struct mw_api_spec {
    result_unit *(*combine_partial_results)(result_unit *r1,result_unit *r2);
    result_unit *(*get_result_object)();
    void (*reinit)(work_unit *work_unit);
-   int work_sz, res_sz; 
+   int work_sz, res_sz, work_ptr_sz; 
       /* size in bytes of the work structure and result structure, needed to send/receive messages */
 };
 

@@ -1,5 +1,6 @@
 #include "mw_api.h"
 #include "queue.h"
+#include "fileio.h"
 #include <stdio.h>
 #include <mpi.h>
 #include <stdlib.h>
@@ -168,6 +169,19 @@ void send_work(int wid,work_queue wq,struct mw_api_spec *f, processor processors
 	//enqueue(pwq,temp);
 }
 
+void write_work_to_file( work_unit **work, int count, struct mw_api_spec *f){
+	write_workList_length(count);
+	int i = 0;
+	int size;
+	while(work[i]){
+		unsigned char *serialized_chunk = f->serialize(work[i],&size);
+		write_workList(serialized_chunk,size);
+		i++;
+	}
+}
+
+
+
 void master(int sz,int argc, char **argv, struct mw_api_spec *f, int m_id){
 		MPI_Status status;
 		processor processors[sz+1];
@@ -176,7 +190,20 @@ void master(int sz,int argc, char **argv, struct mw_api_spec *f, int m_id){
 		processors[sz] = init_processor(-1,BUSY,-1,TRUE);
 		work_unit **work;
 		work_unit **backup_work;
-		work = f->create(argc,argv);
+		work_unit **temp_work;
+
+		if(m_id == 0){
+			temp_work = f->create(argc,argv);
+			// write work to file
+			int n_work = 0;
+			while(temp_work[n_work]!=NULL){
+				n_work++;
+			}
+			n_work--;
+			write_work_to_file(temp_work,n_work,f);
+			work = read_work_list(f);
+		}
+
 		backup_work = f->create(argc,argv);
 		work_queue wq,pwq;
 		wq = queue_create();
@@ -308,6 +335,8 @@ void master(int sz,int argc, char **argv, struct mw_api_spec *f, int m_id){
 					}
 					new_results_to_fetch--;
 					result_unit *r = (result_unit *)malloc(f->res_sz);
+					// write serialized result to file
+					write_result_list(serialized_result,result_size);
 					// deserialize result
 				  	r = f->deserialize_result(serialized_result,result_size);	
 					printf("done %d\n",wid);
@@ -328,15 +357,7 @@ void master(int sz,int argc, char **argv, struct mw_api_spec *f, int m_id){
 						k++;
 					} 
 			  		printf("processor %d %.11f alive and sent %c\n",processors[wid].pid,processors[wid].last_seen,beat);
-			  		/*
-			  		if(processors[wid].status == DEAD){
-			  			// terminate
-			  			printf("terminate cause assumed dead\n");
-						work_unit *chunk = (work_unit *)malloc(f->work_sz);
-						F_Send(chunk, f->work_sz, MPI_BYTE, wid, TAG_TERMINATE, MPI_COMM_WORLD );
-						
-						free(chunk);
-			  		}*/
+
 			  	}
 		  	}
 		}
@@ -543,7 +564,7 @@ int random_fail(int myid){
 	srand(abs(((time(NULL)*181)*((myid-83)*359))%104729));
 	int randomNum = rand() % 101;
 
-	int p = 51;//change as needed
+	int p = 101;//change as needed
 
 	if(randomNum > p)
 	{
