@@ -467,7 +467,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 						if(myid == MASTER_ID){
 							printf("processor %d taking over\n",myid);
 							//char c = getchar();
-							master(sz,argc,argv,f,myid,102);
+							master(sz,argc,argv,f,myid,81);
 							//MASTER_ID = new_master_id;
 							//printf("new master finished!\n");
 							break;
@@ -486,7 +486,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 					send_all_processes(&myid,TAG_MASTER_DIED,sz,myid);
 					//printf(" master dead for %d\n",myid);
 					INFORMED_OTHERS = TRUE;
-					timeout = others_timeout;
+					timeout = master_timeout;
 					start_time = MPI_Wtime();
 
 					
