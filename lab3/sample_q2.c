@@ -192,10 +192,10 @@ int process_results(int sz, result_unit **res){
 		//printf(" length in compile %d\n", res[i]->length );
 		for(j=0;j<(res[i]->length);j++){
 			result = res[i]->factors[j];
-			printf("Factors!! %lu\n",result);
+			printf("%lu\t",result);
 		}
 	}
-	//printf("%lu\n",result);
+	printf("\n");
 
 return 1;
 }
