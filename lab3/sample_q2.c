@@ -142,7 +142,7 @@ work_unit* deserialize_work(unsigned char *serialized_work,int size){
 
 work_unit** create_work(int argc, char **argv){
 	// number of chunks -1
-	int size = 8;
+	int size = 10;
 	mpz_t big_num, big_sqrt;
 	mpz_init(big_num);
 	mpz_init(big_sqrt);

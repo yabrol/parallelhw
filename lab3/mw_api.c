@@ -8,14 +8,15 @@
 
 #define TRUE 1
 #define FALSE 0
-#define MASTER_ID 0
 #define TAG_WORK 0
 #define TAG_RESULT 1
 #define TAG_TERMINATE 99
 #define TAG_HEARTBEAT 2
+#define TAG_MASTER_DIED 404
 #define BUSY 1
 #define IDLE 2
 #define DEAD 0
+
 
 int random_fail();
 typedef struct processor_t{
@@ -133,16 +134,16 @@ void get_lost_work(processor processors[],work_queue pwq, work_queue wq,double c
 
 int F_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm, int myid);
 
-void send_heartbeat (int myid)
+void send_heartbeat (int myid, int dest)
 {
 	printf("Send heartbeat %d\n",myid);
 	char beat = 'a';
-	F_Send(&beat, 1, MPI_BYTE, MASTER_ID, TAG_HEARTBEAT, MPI_COMM_WORLD, myid);
+	F_Send(&beat, 1, MPI_BYTE, dest, TAG_HEARTBEAT, MPI_COMM_WORLD, myid);
 }
 
 
 
-void send_work(int wid,work_queue wq,struct mw_api_spec *f, processor processors[], work_queue pwq){
+void send_work(int wid,work_queue wq,struct mw_api_spec *f, processor processors[], work_queue pwq, int source){
 	int size;
 	work_unit *chunk = (work_unit *)malloc(f->work_sz);
 	chunk = wq->front->work;
@@ -156,21 +157,22 @@ void send_work(int wid,work_queue wq,struct mw_api_spec *f, processor processors
 	printf("Serializing done %d\n",(int)(*serialized_chunk));
 	//free(temp);
 	printf("temp freed ok and size %d\n",size);
-	MPI_Send(serialized_chunk, size, MPI_BYTE, wid, TAG_WORK, MPI_COMM_WORLD );
+	F_Send(serialized_chunk, size, MPI_BYTE, wid, TAG_WORK, MPI_COMM_WORLD, source);
 	//printf("Process %d out of %d\n", wid, sz);
 	free(serialized_chunk);
 	//free(chunk);
-	processors[wid] =  init_processor(wid,BUSY,wq->front->id,FALSE);
+	//processors[wid] =  init_processor(wid,BUSY,wq->front->id,FALSE);
+	processors[wid].status = BUSY;
 	dequeue(wq);
 
 	//enqueue(pwq,temp);
 }
 
-void master(int sz,int argc, char **argv, struct mw_api_spec *f){
+void master(int sz,int argc, char **argv, struct mw_api_spec *f, int m_id){
 		MPI_Status status;
 		processor processors[sz+1];
-		processor master = init_processor(MASTER_ID,BUSY,-1,TRUE);
-		processors[MASTER_ID] = master;
+		processor master = init_processor(m_id,BUSY,-1,TRUE);
+		processors[m_id] = master;
 		processors[sz] = init_processor(-1,BUSY,-1,TRUE);
 		work_unit **work;
 		work_unit **backup_work;
@@ -216,17 +218,19 @@ void master(int sz,int argc, char **argv, struct mw_api_spec *f){
 		double start_time, end_time, delta;
 		// Have queues for work units to be done
 		// Send chunks of work to all the workers unless you encounter null
-		for(wid=1;wid<sz;wid++){
-			send_work(wid,wq,f,processors,pwq);
-			printf("dine sending work to %d\n",wid );
-
-		
-		r=0;
-		while(work[r]!=NULL){
-			printf("at timeout work %d has first %lu\n", r, f->work_first(work[r]));
-			r++;
+		for(wid=0;wid<sz;wid++){
+			if(wid!=m_id){
+				//init the state
+				processors[wid] =  init_processor(wid,IDLE,wq->front->id,FALSE);
+			}
 		}
-	}
+
+		for(wid=0;wid<sz;wid++){
+			if(wid!=m_id){
+			send_work(wid,wq,f,processors,pwq,m_id);
+			printf("dine sending work to %d\n",wid );
+			}
+		}
 		n_chunks = i;
 		// Wait for the results
 		result_unit **results = (result_unit **)malloc((n_chunks)*sizeof(result_unit *));
@@ -238,13 +242,17 @@ void master(int sz,int argc, char **argv, struct mw_api_spec *f){
 		double timeout = .0010;
 		
 		while( ((new_results_to_fetch) || (queue_empty(wq) == FALSE)) && (all_dead == FALSE) ){
-			printf("new_results_to_fetch in loop %d\n", new_results_to_fetch);
+			//printf("new_results_to_fetch in loop %d\n", new_results_to_fetch);
 
 			int result_size;
 			int flag=0;
 
 			while(!flag){
 				current_time = MPI_Wtime();
+				if( (current_time - start_time) > (5*timeout) ){
+					// send heartbeat to workers
+
+				}
 				if( (current_time - start_time) > timeout ){
 					// check for dead workers and change their status
 					//work_lost = 
@@ -259,18 +267,19 @@ void master(int sz,int argc, char **argv, struct mw_api_spec *f){
 					start_time = current_time;
 					// get the work pice from processed queue and put it back on to work queue
 				}
+
 				if(queue_empty(wq) == FALSE){
 			  		// check for idle processors
 			  		// if no idle processors for now then continue
 			  		// else if you find idle worker assign work to it
 			  		wid = get_idle_processor(processors);
-			  			printf("idle processor %d\n",wid );
+			  			//printf("idle processor %d\n",wid );
 
 			  		if(wid != -1)
 			  		{
 			  			printf("assigning to wid %d\n",wid );
 
-			  			send_work(wid,wq,f,processors,pwq);
+			  			send_work(wid,wq,f,processors,pwq,m_id);
 			  			printf("assigned to wid %d\n",wid );
 			  			new_results_to_fetch++;
 			  		}
@@ -319,14 +328,15 @@ void master(int sz,int argc, char **argv, struct mw_api_spec *f){
 						k++;
 					} 
 			  		printf("processor %d %.11f alive and sent %c\n",processors[wid].pid,processors[wid].last_seen,beat);
+			  		/*
 			  		if(processors[wid].status == DEAD){
 			  			// terminate
 			  			printf("terminate cause assumed dead\n");
 						work_unit *chunk = (work_unit *)malloc(f->work_sz);
-						MPI_Send(chunk, f->work_sz, MPI_BYTE, wid, TAG_TERMINATE, MPI_COMM_WORLD );
+						F_Send(chunk, f->work_sz, MPI_BYTE, wid, TAG_TERMINATE, MPI_COMM_WORLD );
 						
 						free(chunk);
-			  		}
+			  		}*/
 			  	}
 		  	}
 		}
@@ -348,14 +358,23 @@ void master(int sz,int argc, char **argv, struct mw_api_spec *f){
 		printf("%.11f\n",delta);	
 }
 
+void send_all_processes(void *buf, int tag, int total_processes,int myid){
+	MPI_Request request;
+    int i=0;
+    for(i=0;i<total_processes;i++){
+    	if(i!=myid)
+    		MPI_Send (buf, sizeof(int), MPI_BYTE, i, tag, MPI_COMM_WORLD);
+	}
+}
+
 void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 	int sz, myid;
 	MPI_Comm_size(MPI_COMM_WORLD, &sz);
   	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
-	if(myid == MASTER_ID){
+	if(myid == 0){
 		// Get pool of work
-		master(sz,argc,argv,f);
+		master(sz,argc,argv,f,0);
 
 	}
 	else{
@@ -363,12 +382,66 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 		work_unit *w_work;
 		result_unit *w_r,*temp_result;
 		int size,flag=0;
-		
-		while(TRUE){
+		double start_time, current_time;
+		double master_timeout = 1;
+		int MASTER_ID = 0;
+		int INFORMED_OTHERS = FALSE;
+		int new_master_id = myid;
+		int master_alive = TRUE;
+		double timeout = master_timeout;
 
+		while(TRUE){
+			start_time = MPI_Wtime();
+			master_alive = TRUE;
+			flag = 0;
 			// http://mpitutorial.com/tutorials/dynamic-receiving-with-mpi-probe-and-mpi-status/
 			while(!flag){
-			MPI_Iprobe(MASTER_ID, MPI_ANY_TAG, MPI_COMM_WORLD ,&flag, &status_size);
+				current_time = MPI_Wtime();
+				//printf("processor %d wait\n", myid);
+				if( (current_time - start_time) > timeout )
+				{
+					// master dead
+					//if(myid == 1){
+					printf("processor %d wait exceed %f\n", myid,timeout);
+					master_alive = FALSE;
+
+					//}
+					
+					break;
+				}
+				MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD ,&flag, &status_size);
+			}
+			if(master_alive == FALSE){
+					if(INFORMED_OTHERS == TRUE){
+						if(myid == MASTER_ID){
+							printf("\n\n================master dead 1====================\n");
+							printf("%d taking over\n",myid);
+							//char c = getchar();
+							//master(sz,argc,argv,f,myid);
+							//MASTER_ID = new_master_id;
+							printf("new also dead\n");
+							break;
+						}
+						else{
+							printf("\n\n================ old master dead====================\n");
+							//MASTER_ID = new_master_id;
+							//char c = getchar();
+							start_time = MPI_Wtime();
+							timeout = master_timeout*3;
+							new_master_id =  myid;
+							//break;
+						}
+					}
+					//else
+					//{
+						// inform others
+						send_all_processes(&myid,TAG_MASTER_DIED,sz,myid);
+						printf(" master dead for %d\n",myid);
+						INFORMED_OTHERS = TRUE;
+						timeout = master_timeout*3;
+						start_time = MPI_Wtime();
+
+					//}
 			}
 			if(flag){
 				MPI_Get_count(&status_size, MPI_BYTE, &size);
@@ -376,10 +449,26 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 				//printf("size message to receive%d\n",size);
 				unsigned char *serialized_work = (unsigned char *)malloc(sizeof(unsigned char)*size);
 				// Receive chunks of work
-				MPI_Recv(serialized_work,size, MPI_BYTE, MASTER_ID, MPI_ANY_TAG, MPI_COMM_WORLD, &status_w);
+				MPI_Recv(serialized_work,size, MPI_BYTE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status_w);
 				// if work tag received
 				// Compute the results 
+				if(status_w.MPI_TAG == TAG_MASTER_DIED){
+					if(INFORMED_OTHERS == FALSE){
+						send_all_processes(&myid,TAG_MASTER_DIED,sz,myid);
+						printf(" got to know master dead %d\n",myid);
+						INFORMED_OTHERS = TRUE;
+
+					}
+					timeout = master_timeout*3;
+					if(new_master_id > status_w.MPI_SOURCE){
+						new_master_id = status_w.MPI_SOURCE;
+					}
+					printf("lowest master decided by %d is %d\n", myid, new_master_id );
+					MASTER_ID = new_master_id;
+				}
+
 				if(status_w.MPI_TAG == TAG_WORK){
+					MASTER_ID = status_w.MPI_SOURCE;
 					w_r = f->get_result_object();
 					temp_result = f->get_result_object();
 					printf("start deserializing\n");
@@ -403,7 +492,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 						else{
 							// send heartbeat
 							printf("last work first %d %lu\n", myid, f->work_first(w_work));
-							send_heartbeat(myid);
+							send_heartbeat(myid, MASTER_ID);
 							// printf("partially complete and work first after partial result %lu for processor %d\n",f->work_first(w_work),myid);
 						}
 					}
@@ -422,6 +511,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 					F_Send(serialized_result, len, MPI_BYTE, MASTER_ID, TAG_RESULT, MPI_COMM_WORLD, myid);
 
 				}
+
 				// if termination tag received cleanup
 				if(status_w.MPI_TAG == TAG_TERMINATE){
 					free(w_work);
@@ -442,7 +532,7 @@ int F_Send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_C
 		return 0;
    } else {
    		MPI_Request request;
-      	return MPI_Send (buf, count, datatype, dest, tag, comm);
+      	return MPI_Isend (buf, count, datatype, dest, tag, comm, &request);
    }
 }
 
@@ -453,7 +543,7 @@ int random_fail(int myid){
 	srand(abs(((time(NULL)*181)*((myid-83)*359))%104729));
 	int randomNum = rand() % 101;
 
-	int p = 50;//change as needed
+	int p = 51;//change as needed
 
 	if(randomNum > p)
 	{
