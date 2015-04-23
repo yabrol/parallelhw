@@ -1,0 +1,4 @@
+#!/bin/sh
+
+bash mygcc "$@" -fopenmp -o ofile
+bash load ofile

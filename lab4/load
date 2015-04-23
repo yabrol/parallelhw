@@ -1,0 +1,5 @@
+#!/bin/sh
+
+DYLD_LIBRARY_PATH=/Users/rohitjain/gcc/usr/local/lib
+export DYLD_LIBRARY_PATH
+exec "./$@"
