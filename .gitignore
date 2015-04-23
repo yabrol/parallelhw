@@ -1,0 +1,6 @@
+*.o
+*.sh
+hosts
+.blah.c.swp
+.fact.sh.swp
+sample_q2

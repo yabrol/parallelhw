@@ -518,6 +518,7 @@ void MW_Run (int argc, char **argv, struct mw_api_spec *f){
 
 				if(status_w.MPI_TAG == TAG_WORK){
 					MASTER_ID = status_w.MPI_SOURCE;
+					timeout = master_timeout;
 					n_others =0;
 					w_r = f->get_result_object();
 					temp_result = f->get_result_object();
