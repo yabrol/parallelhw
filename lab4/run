@@ -1,4 +1,4 @@
 #!/bin/sh
 
-bash mygcc "$@" -fopenmp -o ofile
-bash load ofile
+gcc-4.9 "$@" -lnetpbm -fopenmp -o ofile
+./ofile
