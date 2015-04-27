@@ -1,4 +1,6 @@
 #!/bin/sh
 
+clear
 gcc-4.9 "$@" -lnetpbm -fopenmp -o ofile
 ./ofile
+ppmtojpeg lennaout.ppm> lennaout.jpg
