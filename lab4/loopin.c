@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <omp.h>
+#include <math.h>
 #include <netpbm/pam.h>
 
 typedef struct pixel{
@@ -16,6 +17,17 @@ typedef struct image_struct
 	int width;
 	int height;
 }image;
+
+pix **allocate_pixels(int height,int width){
+	pix **pixels;
+	int i,j;
+	// allocate space for image -> 2d array of pix
+	pixels = (pix**) malloc(sizeof(pix*)* height);
+	for (i=0; i< height; i++)
+        pixels[i] = (pix *)malloc(width * sizeof(pix));
+
+    return pixels;
+}
 
 void print_matrix(int a[][4],int n){
 	int i,j;
@@ -35,16 +47,19 @@ void print_submatrix(int a[][2],int n){
 	}
 }
 
-void get_submatrix(int a[][4],int i,int j,int size){
+image get_submatrix(image mat,int i,int j,int size_x,int size_y){
 	int x,y;
-	int r[size][size];
-	for(x=i;x<i+size;x++)
-		for(y=j;y<j+size;y++){
-			//printf("%d %d %d\n",x-i,y-j,a[x][y] );
-			r[x-i][y-j] = a[x][y];
+	image part;
+	part.width = size_x;
+	part.height = size_y;	
+	part.pixels = allocate_pixels(size_x,size_y);
+
+	for(x=i;x<i+size_x;x++)
+		for(y=j;y<j+size_y;y++){
+			part.pixels[x-i][y-j] = mat.pixels[x][y];
 		}
 
-	print_submatrix(r,size);
+	return part;
 }
 
 image read_image(struct pam *pam_image, struct pam *pam_stencil){
@@ -67,11 +82,9 @@ image read_image(struct pam *pam_image, struct pam *pam_stencil){
 	printf("padded image %d x %d\n", width, height);
 	printf("image:%d x %d , stencil %d x %d \n", nw,nh, pam_stencil->width,pam_stencil->height);
 
-	// allocate space for image -> 2d array of pix
-	input_image.pixels = (pix**) malloc(sizeof(pix*)* height);
-	for (i=0; i< height; i++)
-        input_image.pixels[i] = (pix *)malloc(width * sizeof(pix));
+	
     // printf("space allocated for image\n");
+    input_image.pixels = allocate_pixels(width, height);
 
     // read in the image and load it into the array
 	for (i=0; i< height; i++){
@@ -199,10 +212,10 @@ int main (int argc, char **argv)
 	struct pam inpam, outpam, instencil;
 	unsigned int row,column,plane;
 	unsigned int grand_total;
-	image input_image,stencil,convolved_image;
+	image input_image,stencil,result;
 	int processors;
 	tuple * tuplerow;
-	int j,i = 0;
+	int j,n,x,y,p,k,i = 0;
     
 
 	FILE *fp = fopen("lenn.ppm", "r");
@@ -213,10 +226,13 @@ int main (int argc, char **argv)
 
 	pnm_readpaminit(fp, &inpam, PAM_STRUCT_SIZE(tuple_type));
 	pnm_readpaminit(st, &instencil, PAM_STRUCT_SIZE(tuple_type));
+	
 	outpam = inpam;
 	tuplerow = pnm_allocpamrow(&inpam);
 
-	processors = 4;
+	p = 4;
+	n = inpam.height;
+	k = (instencil.width + 1)/2;
 	// processors = atio(argv[1]);
 
 	// read stencil into a 2d array
@@ -228,54 +244,67 @@ int main (int argc, char **argv)
 	input_image = read_image(&inpam, &instencil);
 	printf("read image\n");
 
-	// do convolution
-	convolved_image = convolve(input_image,stencil);
+	result.width = inpam.width;
+	result.height = inpam.height;
+	result.pixels = allocate_pixels(inpam.width,inpam.height);
 
+	x = (int)(n/sqrt(p));
+	y = (int)(n/sqrt(p));
+	int x_limit = n/x;
+	int y_limit = n/y;
+
+	image partial_image,convolved_image;
+	char result_p[2][2];
+	omp_set_num_threads(4);
+	#pragma omp parallel for collapse(2) private(i,j,partial_image,convolved_image) shared(result,input_image,x,y,result_p) schedule(static,1)
+  	for(i=0; i<x_limit; i++)
+	{
+	  	for(j=0; j<y_limit; j++)
+	  	{
+	  		//if(omp_get_thread_num() == 2){
+	  			int t_x = i*(x - (k-1));
+	  			int t_y = j*(y - (k-1));
+	  			printf ("hello there, I am thread %d and i is %d and j is %d\n", omp_get_thread_num(),i,j);
+	  			
+	  			// get submatrix
+	  			partial_image = get_submatrix(input_image, t_x, t_y, x + 2*(k-1) , y + 2*(k-1));
+	  			// convolve
+	  			convolved_image = convolve(partial_image,stencil);
+	  			// update the result buffer
+	  			printf("convolved for (%d ,%d), block size %d x %d, output %d x %d\n", t_x, t_y, x + 2*(k-1) , y + 2*(k-1), convolved_image.width, convolved_image.height);
+				printf("writing results to %d, %d of size %d x %d\n", i*x, j*y , convolved_image.height, convolved_image.width);
+				
+				int r,c;
+				for (r = i*x; r < convolved_image.height +(i*x); r++) {
+					
+					for (c = j*y; c < convolved_image.width +(j*y); c++) {
+						result.pixels[r][c].r = convolved_image.pixels[r - (i*x)][c - (j*y)].r;
+						result.pixels[r][c].g = convolved_image.pixels[r - (i*x)][c - (j*y)].g;
+						result.pixels[r][c].b = convolved_image.pixels[r - (i*x)][c - (j*y)].b;
+					}
+				}
+				
+			//}
+		}	
+
+	}
+
+	
+	// write the result
 	FILE *op = fopen("lennaout.ppm","w");
 	outpam.file = op;
 	pnm_writepaminit(&outpam);
 	printf("writing output\n");
-	for (row = 0; row < convolved_image.height; row++) {
-		for (column = 0; column < convolved_image.width; ++column) {
-			tuplerow[column][0] = convolved_image.pixels[row][column].r;
-			tuplerow[column][1] = convolved_image.pixels[row][column].g;
-			tuplerow[column][2] = convolved_image.pixels[row][column].b;
+	for (row = 0; row < result.height; row++) {
+		for (column = 0; column < result.width; ++column) {
+			tuplerow[column][0] = result.pixels[row][column].r;
+			tuplerow[column][1] = result.pixels[row][column].g;
+			tuplerow[column][2] = result.pixels[row][column].b;
 		}
 		pnm_writepamrow(&outpam, tuplerow);
 	}
 
 	pnm_freepamrow(tuplerow);
-
-
-  	//omp_set_num_threads(4);
-    int count = 0;
-  	int a[4][4];
-  	for(i=0;i<4;i++)
-  		for(j=0;j<4;j++)
-  			a[i][j]=count++;
-
-  	for(i=0;i<4;i++)
-  		for(j=0;j<4;j++)
-  			printf("%d ",a[i][j]);
-  	int p=4;
-  	int root_p = 2;
-  	printf("initialized\n");
-  	print_matrix(a,p);
-
-	
-	#pragma omp parallel for collapse(2) private(i,j) schedule(static,1)
-  	for(i=0;i<root_p;i++)
-	{
-	  	for(j=0;j<root_p;j++)
-	  	{
-	  		if(omp_get_thread_num() == 2){
-	  			printf ("hello there, I am thread %d and i is %d and j is %d\n", omp_get_thread_num(),i,j);
-	  			get_submatrix(a,i*root_p,j*root_p,root_p);
-			}
-		}	
-
-	}
-	
  	return 0;
 
 }
