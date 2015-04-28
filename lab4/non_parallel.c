@@ -1,18 +1,4 @@
-	// do convolution
-	convolved_image = convolve(input_image,stencil);
-
-	FILE *op = fopen("lennaout.ppm","w");
-	outpam.file = op;
-	pnm_writepaminit(&outpam);
-	printf("writing output\n");
-	for (row = 0; row < convolved_image.height; row++) {
-		for (column = 0; column < convolved_image.width; ++column) {
-			tuplerow[column][0] = convolved_image.pixels[row][column].r;
-			tuplerow[column][1] = convolved_image.pixels[row][column].g;
-			tuplerow[column][2] = convolved_image.pixels[row][column].b;
-		}
-		pnm_writepamrow(&outpam, tuplerow);
-	}#include <stdio.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <omp.h>
 #include <netpbm/pam.h>
@@ -220,7 +206,7 @@ int main (int argc, char **argv)
     
 
 	FILE *fp = fopen("lenn.ppm", "r");
-	FILE *st = fopen("stencil.pgm", "r");
+	FILE *st = fopen("gauss.pgm", "r");
 	
 
 	pm_init(argv[0], 0);
@@ -293,6 +279,3 @@ int main (int argc, char **argv)
  	return 0;
 
 }
-
-
-	pnm_freepamrow(tuplerow);
