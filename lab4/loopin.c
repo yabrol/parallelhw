@@ -64,7 +64,6 @@ image pad_image(image input_image,struct pam *pam_stencil){
 	padded_image.width = width;
 	padded_image.height = height;
 
-	printf("padded image %d x %d\n", width, height);
 	// printf("image:%d x %d , stencil %d x %d , pad_width (%d,%d), pad_height (%d,%d)\n", nw,nh, pam_stencil->width,pam_stencil->height,pad_left,pad_right,pad_top,pad_bottom);
 
 	
@@ -253,10 +252,8 @@ pix convolve_pixel(image mat, stencil_image stencil, int i,int j){
 	double temp_g = 0;
 	double temp_b = 0;
 	double sum = 0;
-	//printf("i %d, j %d, size %d\n",i,j,size );
 	for(x=i;x< (i + stencil.height) ;x++)
 		for(y=j;y< (j + stencil.width) ;y++){
-			// printf("%d %d %d\n",x-i,y-j,mat.pixels[x][y].r );
 			temp_r += (mat.pixels[x][y].r * stencil.pixels[x-i][y-j]);
 			temp_g += (mat.pixels[x][y].g * stencil.pixels[x-i][y-j]);
 			temp_b += (mat.pixels[x][y].b * stencil.pixels[x-i][y-j]);
@@ -267,8 +264,6 @@ pix convolve_pixel(image mat, stencil_image stencil, int i,int j){
 	value.r = temp_r/sum;
 	value.g = temp_g/sum;
 	value.b = temp_b/sum;
-	// printf("sum %f\n",sum);
-	// printf("%f %f %f\n", temp_r/sum, temp_g/sum, temp_b/sum);
 	return value;
 }
 
@@ -317,14 +312,14 @@ int main (int argc, char **argv)
 	stencil_image stencil;
 	int processors;
 	tuple * tuplerow;
-	int j,n,n_x,n_y,x,y,p,p_x,p_y,s_w,s_h,root_p,i = 0;
+	int j,n,n_x,n_y,x,y,p,p_x,p_y,s_w,s_h,x_remainder,y_remainder,root_p,i = 0;
 	// write the result
 
-	p = 10;
+	p = 8;
 	omp_set_num_threads(p);
 
 
-	FILE *fp = fopen("lenn.ppm", "r");
+	FILE *fp = fopen("lencut.ppm", "r");
 	FILE *st = fopen("gauss.pgm", "r");
 	
 
@@ -358,7 +353,9 @@ int main (int argc, char **argv)
 	p_x = root_p - (p%(root_p * root_p)); // to make sure integers p_x * p_y = p 
 	p_y = p/p_x;
 	x = (int)(n_x/p_x);
+	x_remainder = n_x%p_x;
 	y = (int)(n_y/p_y);
+	y_remainder = n_y%p_y;
 	printf("x %d y %d\n", x, y);
 	int x_limit = n_x/x;
 	int y_limit = n_y/y;
@@ -370,23 +367,25 @@ int main (int argc, char **argv)
 	{
 		int l;
 		for(l=0;l<n_iter;l++){
-			int pid = omp_get_thread_num();
+			int pid, t_x, t_y, r, c, p, o, size_x, size_y;
+			pid = omp_get_thread_num();
 			i = pid/y_limit;
 			j = pid%y_limit;
-  			int t_x = i*(x ) ;
-  			int t_y = j*(y );
-			int r,c,p,o;
+			t_x = i*(x ) ;
+  			t_y = j*(y );
+			size_x = x + (i == (x_limit -1))*x_remainder;
+			size_y = y + (j == (y_limit -1))*y_remainder;
 
-  			printf ("hello there, I am thread %d %d %d and i is %d %d and j is %d %d\n", pid,y_limit,x_limit,pid/y_limit,i,pid%y_limit,j);
+  			printf ("hello there, I am thread %d and i is %d and j is %d requesting submatrix %d x %d\n", pid,i,j,size_y,size_x);
   			
   			// get submatrix
-  			partial_image = get_submatrix(input_image, t_x, t_y, x + s_h - 1 , y + s_w - 1,&instencil);
+  			partial_image = get_submatrix(input_image, t_x, t_y, size_x + s_h - 1 , size_y + s_w - 1,&instencil);
   			// convolve
   			convolved_image = convolve(partial_image,stencil,omp_get_thread_num());
   			printf("convolved image\n");
 
   			// update the result buffer
-  			printf("convolved for (%d ,%d), block size %d x %d, output %d x %d\n", t_x, t_y, x + s_h - 1 , y + s_w - 1, convolved_image.width, convolved_image.height);
+  			printf("convolved for (%d ,%d), block size %d x %d, output %d x %d\n", t_x, t_y, size_x + s_h - 1 , size_y + s_w - 1, convolved_image.width, convolved_image.height);
 			printf("writing results to %d, %d of size %d x %d\n", i*x, j*y , convolved_image.height, convolved_image.width);
 
 
@@ -396,7 +395,6 @@ int main (int argc, char **argv)
 					result.pixels[r][c].r = convolved_image.pixels[r - (i*x)][c - (j*y)].r;
 					result.pixels[r][c].g = convolved_image.pixels[r - (i*x)][c - (j*y)].g;
 					result.pixels[r][c].b = convolved_image.pixels[r - (i*x)][c - (j*y)].b;
-					// printf("(%d %d %d)", result.pixels[r][c].r,result.pixels[r][c].g,result.pixels[r][c].b);
 				}
 			}
 		
@@ -408,7 +406,6 @@ int main (int argc, char **argv)
 						input_image.pixels[r][c].r = result.pixels[r][c].r;
 						input_image.pixels[r][c].g = result.pixels[r][c].g;
 						input_image.pixels[r][c].b = result.pixels[r][c].b;
-						// printf("(%d %d %d)", result.pixels[r][c].r,result.pixels[r][c].g,result.pixels[r][c].b);
 				}
 			}				
 			#pragma omp barrier	
@@ -423,12 +420,10 @@ int main (int argc, char **argv)
 	pnm_writepaminit(&outpam);
 	printf("writing output\n");
 	for (row = 0; row < result.height; row++) {
-		// printf("\n");
 		for (column = 0; column < result.width; ++column) {
 			tuplerow[column][0] = result.pixels[row][column].r;
 			tuplerow[column][1] = result.pixels[row][column].g;
 			tuplerow[column][2] = result.pixels[row][column].b;
-			// printf("(%d %d %d)", result.pixels[row][column].r,result.pixels[row][column].g,result.pixels[row][column].b);
 		}
 		pnm_writepamrow(&outpam, tuplerow);
 	}
