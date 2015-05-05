@@ -360,8 +360,7 @@ int main (int argc, char **argv)
 
 	// read image into a 2d array with padding according to the stencil length
 	printf("reading image\n");
-	input_image = read_color_image(&inpam);
-	printf("read image\n");
+	input_image = read_color_image(&inpam); 
 
 	result.width = inpam.width;
 	result.height = inpam.height;
@@ -375,59 +374,61 @@ int main (int argc, char **argv)
 	image partial_image,convolved_image;
 	char result_p[2][2];
 	omp_set_num_threads(4);
-	int n_iter = 10;
+	int n_iter = 20;
 	#pragma omp parallel private(i,j,partial_image,convolved_image) shared(result,input_image,x,y,n_iter)
 	{
 		int l;
 		for(l=0;l<n_iter;l++){
-		//#pragma omp for collapse(2) schedule(static,1)
-	  	//for(i=0; i<x_limit; i++)
-		//{
-		//  	for(j=0; j<y_limit; j++)
-		//  	{
-					int pid = omp_get_thread_num();
-					i = pid/x_limit;
-					j = pid%y_limit;
-		  			int t_x = i*(x ) ;
-		  			int t_y = j*(y );
-		  			printf ("hello there, I am thread %d and i is %d and j is %d\n", omp_get_thread_num(),i,j);
-		  			
-		  			// get submatrix
-		  			partial_image = get_submatrix(input_image, t_x, t_y, x + 2*(k-1) , y + 2*(k-1),&instencil);
-		  			// convolve
-		  			convolved_image = convolve(partial_image,stencil);
-		  			printf("convolved image\n");
+			int pid = omp_get_thread_num();
+			i = pid/x_limit;
+			j = pid%y_limit;
+  			int t_x = i*(x ) ;
+  			int t_y = j*(y );
+			int r,c,p,o;
 
-		  			// update the result buffer
-		  			printf("convolved for (%d ,%d), block size %d x %d, output %d x %d\n", t_x, t_y, x + 2*(k-1) , y + 2*(k-1), convolved_image.width, convolved_image.height);
-					printf("writing results to %d, %d of size %d x %d\n", i*x, j*y , convolved_image.height, convolved_image.width);
-					#pragma omp critical
-					{
-						int p,o;
-						// printf("\n");
-			  			for(p=0;p<convolved_image.height;p++){
-			  				// printf("\n");
-			  				for(o=0;o<convolved_image.width;o++){
-			  					// printf("(%d %d %d)", convolved_image.pixels[p][o].r,convolved_image.pixels[p][o].g,convolved_image.pixels[p][o].b);
-			  				}
-			  			}
-			  			// printf("\nblocked\n");
-						// printf("block\n");
-						int r,c;
-						for (r = i*x; r < convolved_image.height +(i*x); r++) {
-							// printf("\n");
-							for (c = j*y; c < convolved_image.width +(j*y); c++) {
-								result.pixels[r][c].r = convolved_image.pixels[r - (i*x)][c - (j*y)].r;
-								result.pixels[r][c].g = convolved_image.pixels[r - (i*x)][c - (j*y)].g;
-								result.pixels[r][c].b = convolved_image.pixels[r - (i*x)][c - (j*y)].b;
-								// printf("(%d %d %d)", result.pixels[r][c].r,result.pixels[r][c].g,result.pixels[r][c].b);
-							}
-						}
-						// printf("\n");
-					}
-		//	}
-		//}
-		#pragma omp barrier	
+  			printf ("hello there, I am thread %d and i is %d and j is %d\n", omp_get_thread_num(),i,j);
+  			
+  			// get submatrix
+  			partial_image = get_submatrix(input_image, t_x, t_y, x + 2*(k-1) , y + 2*(k-1),&instencil);
+  			// convolve
+  			convolved_image = convolve(partial_image,stencil);
+  			printf("convolved image\n");
+
+  			// update the result buffer
+  			printf("convolved for (%d ,%d), block size %d x %d, output %d x %d\n", t_x, t_y, x + 2*(k-1) , y + 2*(k-1), convolved_image.width, convolved_image.height);
+			printf("writing results to %d, %d of size %d x %d\n", i*x, j*y , convolved_image.height, convolved_image.width);
+				// printf("\n");
+  			for(p=0;p<convolved_image.height;p++){
+  				// printf("\n");
+  				for(o=0;o<convolved_image.width;o++){
+  					// printf("(%d %d %d)", convolved_image.pixels[p][o].r,convolved_image.pixels[p][o].g,convolved_image.pixels[p][o].b);
+  				}
+  			}
+  			// printf("\nblocked\n");
+			// printf("block\n");
+			for (r = i*x; r < convolved_image.height +(i*x); r++) {
+				// printf("\n");
+				for (c = j*y; c < convolved_image.width +(j*y); c++) {
+					result.pixels[r][c].r = convolved_image.pixels[r - (i*x)][c - (j*y)].r;
+					result.pixels[r][c].g = convolved_image.pixels[r - (i*x)][c - (j*y)].g;
+					result.pixels[r][c].b = convolved_image.pixels[r - (i*x)][c - (j*y)].b;
+					// printf("(%d %d %d)", result.pixels[r][c].r,result.pixels[r][c].g,result.pixels[r][c].b);
+				}
+			}
+		
+			// make sure every processor computed result
+			// copy result back to image
+			#pragma omp barrier	
+			for (r = i*x; r < convolved_image.height +(i*x); r++) {
+				for (c = j*y; c < convolved_image.width +(j*y); c++) {
+						input_image.pixels[r][c].r = result.pixels[r][c].r;
+						input_image.pixels[r][c].g = result.pixels[r][c].g;
+						input_image.pixels[r][c].b = result.pixels[r][c].b;
+						// printf("(%d %d %d)", result.pixels[r][c].r,result.pixels[r][c].g,result.pixels[r][c].b);
+				}
+			}				
+			#pragma omp barrier	
+
 		}
 	}
 
