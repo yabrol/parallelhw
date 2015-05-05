@@ -48,30 +48,14 @@ double **allocate_stencil_pixels(int height,int width){
     return pixels;
 }
 
-void print_matrix(int a[][4],int n){
-	int i,j;
-	for(i=0;i<n;i++){
-		printf("\n");
-		for(j=0;j<n;j++)
-			printf("%d ", a[i][j]);
-	}
-}
-
-void print_submatrix(int a[][2],int n){
-	int i,j;
-	for(i=0;i<n;i++){
-		printf("\n");
-		for(j=0;j<n;j++)
-			printf("%d ", a[i][j]);
-	}
-}
-
-
 image pad_image(image input_image,struct pam *pam_stencil){
 	tuple *tuplerow;
 	int height = input_image.height + pam_stencil->height - 1;
 	int width = input_image.width + pam_stencil->width - 1;
-	int k = (pam_stencil->width + 1)/2;
+	int pad_top = floor((double)(pam_stencil->height - 1)/2);
+	int pad_bottom = ceil((double)(pam_stencil->height - 1)/2);
+	int pad_left = floor((double)(pam_stencil->width - 1)/2);
+	int pad_right = ceil((double)(pam_stencil->width - 1)/2);
 	int nw = input_image.width;
 	int nh = input_image.height;
 	int i,j;
@@ -81,16 +65,16 @@ image pad_image(image input_image,struct pam *pam_stencil){
 	padded_image.height = height;
 
 	printf("padded image %d x %d\n", width, height);
-	printf("image:%d x %d , stencil %d x %d \n", nw,nh, pam_stencil->width,pam_stencil->height);
+	// printf("image:%d x %d , stencil %d x %d , pad_width (%d,%d), pad_height (%d,%d)\n", nw,nh, pam_stencil->width,pam_stencil->height,pad_left,pad_right,pad_top,pad_bottom);
 
 	
+    padded_image.pixels = allocate_pixels( height, width);
     // printf("space allocated for image\n");
-    padded_image.pixels = allocate_pixels(width, height);
 
     // read in the image and load it into the array
 	for (i=0; i< height; i++){
 		// assign zero values if one of the padded rows
-    	if( i< (k-1) || i>((k-1)+ nh -1 ) ){
+    	if( i< pad_top || i>( height - 1 - pad_bottom ) ){
 	    	for(j=0;j< width;j++){
 	    		padded_image.pixels[i][j].r = 0;
 	    		padded_image.pixels[i][j].g = 0;
@@ -100,13 +84,13 @@ image pad_image(image input_image,struct pam *pam_stencil){
 	    else{
 	    	for(j=0;j< width;j++){
 	    		// asssign zero value if one of the padded columns
-	    		if( j< (k-1) || j>((k-1)+ nw -1 ) ){
+	    		if( j< pad_left || j>( width - 1 - pad_right ) ){
 		    		padded_image.pixels[i][j].r = 0;
 		    		padded_image.pixels[i][j].g = 0;
 		    		padded_image.pixels[i][j].b = 0;
 		    	}
 		    	else{
-		    		padded_image.pixels[i][j] = input_image.pixels[i-(k-1)][j-(k-1)];
+		    		padded_image.pixels[i][j] = input_image.pixels[i-pad_top][j- pad_left];
 		    	}
 	    	}
 	    }
@@ -118,8 +102,8 @@ image pad_image(image input_image,struct pam *pam_stencil){
 image get_submatrix(image mat,int i,int j,int size_x,int size_y,struct pam *stencil){
 	int x,y;
 	image part;
-	part.width = size_x;
-	part.height = size_y;	
+	part.width = size_y;
+	part.height = size_x;	
 	part.pixels = allocate_pixels(size_x,size_y);
 
 	image padded_image = pad_image(mat,stencil);
@@ -129,15 +113,15 @@ image get_submatrix(image mat,int i,int j,int size_x,int size_y,struct pam *sten
 			part.pixels[x-i][y-j] = padded_image.pixels[x][y];
 		}
 
+	// TODO: Free padded image
 	return part;
 }
 
 image read_color_image(struct pam *pam_image){
 	tuple *tuplerow;
-	// if stencil is 2*k -1, k-1 padding needed on all sides
 	int height = pam_image->height;
 	int width = pam_image->width;
-	int i,j,k;
+	int i,j;
 	image input_image;
 
 	input_image.width = width;
@@ -147,7 +131,7 @@ image read_color_image(struct pam *pam_image){
 	tuplerow = pnm_allocpamrow(pam_image);
 
     printf("space allocated for image\n");
-    input_image.pixels = allocate_pixels(width, height);
+    input_image.pixels = allocate_pixels( height, width);
 
     // read in the image and load it into the array
 	for (i=0; i< height; i++){
@@ -168,10 +152,12 @@ image read_color_image(struct pam *pam_image){
 
 image read_and_pad_image(struct pam *pam_image, struct pam *pam_stencil){
 	tuple *tuplerow;
-	// if stencil is 2*k -1, k-1 padding needed on all sides
 	int height = pam_image->height + pam_stencil->height - 1;
 	int width = pam_image->width + pam_stencil->width - 1;
-	int k = (pam_stencil->width + 1)/2;
+	int pad_top = floor((double)(pam_stencil->height - 1)/2);
+	int pad_bottom = ceil((double)(pam_stencil->height - 1)/2);
+	int pad_left = floor((double)(pam_stencil->width - 1)/2);
+	int pad_right = ceil((double)(pam_stencil->width - 1)/2);
 	int nw = pam_image->width;
 	int nh = pam_image->height;
 	int i,j;
@@ -188,12 +174,12 @@ image read_and_pad_image(struct pam *pam_image, struct pam *pam_stencil){
 
 	
     // printf("space allocated for image\n");
-    input_image.pixels = allocate_pixels(width, height);
+    input_image.pixels = allocate_pixels( height, width);
 
     // read in the image and load it into the array
 	for (i=0; i< height; i++){
 		// assign zero values if one of the padded rows
-    	if( i< (k-1) || i>((k-1)+ nh -1 ) ){
+    	if( i< pad_top || i>( pad_top + nh -1 ) ){
 	    	for(j=0;j< width;j++){
 	    		input_image.pixels[i][j].r = 0;
 	    		input_image.pixels[i][j].g = 0;
@@ -205,15 +191,15 @@ image read_and_pad_image(struct pam *pam_image, struct pam *pam_stencil){
 	    	pnm_readpamrow(pam_image, tuplerow);
 	    	for(j=0;j< width;j++){
 	    		// asssign zero value if one of the padded columns
-	    		if( j< (k-1) || j>((k-1)+ nw -1 ) ){
+	    		if( j< pad_left || j>( pad_left + nw -1 ) ){
 		    		input_image.pixels[i][j].r = 0;
 		    		input_image.pixels[i][j].g = 0;
 		    		input_image.pixels[i][j].b = 0;
 		    	}
 		    	else{
-		    		input_image.pixels[i][j].r = tuplerow[j-(k-1)][0];
-		    		input_image.pixels[i][j].g = tuplerow[j-(k-1)][1];
-		    		input_image.pixels[i][j].b = tuplerow[j-(k-1)][2];	
+		    		input_image.pixels[i][j].r = tuplerow[j-pad_left][0];
+		    		input_image.pixels[i][j].g = tuplerow[j-pad_left][1];
+		    		input_image.pixels[i][j].b = tuplerow[j-pad_left][2];	
 		    	}
 	    	}
 	    }
@@ -260,7 +246,7 @@ stencil_image read_stencil(struct pam *pam_stencil){
     return stencil;
 }
 
-pix convolve_pixel(image mat, stencil_image stencil, int i,int j, int size){
+pix convolve_pixel(image mat, stencil_image stencil, int i,int j){
 	int x,y;
 	pix value;
 	double temp_r = 0;
@@ -268,9 +254,9 @@ pix convolve_pixel(image mat, stencil_image stencil, int i,int j, int size){
 	double temp_b = 0;
 	double sum = 0;
 	//printf("i %d, j %d, size %d\n",i,j,size );
-	for(x=i;x<i+size;x++)
-		for(y=j;y<j+size;y++){
-			//printf("%d %d %d\n",x-i,y-j,a[x][y] );
+	for(x=i;x< (i + stencil.height) ;x++)
+		for(y=j;y< (j + stencil.width) ;y++){
+			// printf("%d %d %d\n",x-i,y-j,mat.pixels[x][y].r );
 			temp_r += (mat.pixels[x][y].r * stencil.pixels[x-i][y-j]);
 			temp_g += (mat.pixels[x][y].g * stencil.pixels[x-i][y-j]);
 			temp_b += (mat.pixels[x][y].b * stencil.pixels[x-i][y-j]);
@@ -281,45 +267,41 @@ pix convolve_pixel(image mat, stencil_image stencil, int i,int j, int size){
 	value.r = temp_r/sum;
 	value.g = temp_g/sum;
 	value.b = temp_b/sum;
-
-	//printf("%f %f %f\n\n", temp_r/sum, temp_g/sum, temp_b/sum);
+	// printf("sum %f\n",sum);
+	// printf("%f %f %f\n", temp_r/sum, temp_g/sum, temp_b/sum);
 	return value;
 }
 
-image convolve(image input_image, stencil_image stencil ){
-	int k = (stencil.width + 1)/2;
+image convolve(image input_image, stencil_image stencil, int t_num ){
 	int i,j;
 	int width = input_image.width;
 	int height = input_image.height;
+	int pad_top = floor((double)(stencil.height - 1)/2);
+	int pad_bottom = ceil((double)(stencil.height - 1)/2);
+	int pad_left = floor((double)(stencil.width - 1)/2);
+	int pad_right = ceil((double)(stencil.width - 1)/2);
 	image result;
-	result.height = input_image.height - 2*(k-1);
-	result.width = input_image.width - 2*(k-1);
+	result.height = input_image.height - (stencil.height - 1);
+	result.width = input_image.width - (stencil.width - 1);
 
 		// allocate space for image -> 2d array of pix
 	result.pixels = allocate_pixels(result.height,result.width);
 
-	printf("image to convolve %d x %d\n",input_image.width,input_image.height);
+	printf("image to convolve %d x %d for thread %d\n",input_image.width,input_image.height, t_num);
 	printf("stencil to convolve %d x %d\n",stencil.width,stencil.height);
 
 	for (i=0; i< height; i++){
-		if( !( i< (k-1) || i>( height - (k-1) - 1 ) ) ){
+		if( !( i< pad_top || i>( height - pad_bottom - 1 ) ) ){
 	    	for(j=0;j< width;j++){
 	    		// asssign zero value if one of the padded columns
-	    		if( !( j< (k-1) || j>( width - (k-1) - 1 ) ) ){
+	    		if( !( j< pad_left || j>( width - pad_right - 1 ) ) ){
 	    			// do convolution
-	    			/*
-	    			pix temp = convolve_pixel(input_image, stencil, i-(k-1), j-(k-1), 2*(k-1));
-	    			result.pixels[i-(k-1)][j-(k-1)].r = input_image.pixels[i][j].r + temp.r; 
-	    			result.pixels[i-(k-1)][j-(k-1)].g = input_image.pixels[i][j].g + temp.g;
-	    			result.pixels[i-(k-1)][j-(k-1)].b = input_image.pixels[i][j].b + temp.b;
-	    			*/
-	    			result.pixels[i-(k-1)][j-(k-1)] = convolve_pixel(input_image, stencil, i-(k-1), j-(k-1), (2*k)-1 );
-		    		//result.pixels[i-(k-1)][j-(k-1)] = input_image.pixels[i][j];
+	    			result.pixels[i- pad_top][j- pad_left] = convolve_pixel(input_image, stencil, i- pad_top, j- pad_left );
+//	    			result.pixels[i- pad_top][j- pad_left] = input_image.pixels[i][j];
 		    	}
 	    	}
 	    }
     }
-
     // save convolved image
     return result;
 
@@ -334,7 +316,7 @@ int main (int argc, char **argv)
 	stencil_image stencil;
 	int processors;
 	tuple * tuplerow;
-	int j,n,x,y,p,k,i = 0;
+	int j,n,x,y,p,s_w,s_h,i = 0;
 	// write the result
 
 	FILE *fp = fopen("lenn.ppm", "r");
@@ -351,7 +333,8 @@ int main (int argc, char **argv)
 
 	p = 4;
 	n = inpam.height;
-	k = (instencil.width + 1)/2;
+	s_w = instencil.width;
+	s_h = instencil.height;
 	// processors = atio(argv[1]);
 
 	// read stencil into a 2d array
@@ -364,7 +347,7 @@ int main (int argc, char **argv)
 
 	result.width = inpam.width;
 	result.height = inpam.height;
-	result.pixels = allocate_pixels(inpam.width,inpam.height);
+	result.pixels = allocate_pixels(inpam.height, inpam.width);
 
 	x = (int)(n/sqrt(p));
 	y = (int)(n/sqrt(p));
@@ -374,7 +357,7 @@ int main (int argc, char **argv)
 	image partial_image,convolved_image;
 	char result_p[2][2];
 	omp_set_num_threads(4);
-	int n_iter = 20;
+	int n_iter = 1;
 	#pragma omp parallel private(i,j,partial_image,convolved_image) shared(result,input_image,x,y,n_iter)
 	{
 		int l;
@@ -389,13 +372,13 @@ int main (int argc, char **argv)
   			printf ("hello there, I am thread %d and i is %d and j is %d\n", omp_get_thread_num(),i,j);
   			
   			// get submatrix
-  			partial_image = get_submatrix(input_image, t_x, t_y, x + 2*(k-1) , y + 2*(k-1),&instencil);
+  			partial_image = get_submatrix(input_image, t_x, t_y, x + s_h - 1 , y + s_w - 1,&instencil);
   			// convolve
-  			convolved_image = convolve(partial_image,stencil);
+  			convolved_image = convolve(partial_image,stencil,omp_get_thread_num());
   			printf("convolved image\n");
 
   			// update the result buffer
-  			printf("convolved for (%d ,%d), block size %d x %d, output %d x %d\n", t_x, t_y, x + 2*(k-1) , y + 2*(k-1), convolved_image.width, convolved_image.height);
+  			printf("convolved for (%d ,%d), block size %d x %d, output %d x %d\n", t_x, t_y, x + s_h - 1 , y + s_w - 1, convolved_image.width, convolved_image.height);
 			printf("writing results to %d, %d of size %d x %d\n", i*x, j*y , convolved_image.height, convolved_image.width);
 				// printf("\n");
   			for(p=0;p<convolved_image.height;p++){
@@ -404,8 +387,7 @@ int main (int argc, char **argv)
   					// printf("(%d %d %d)", convolved_image.pixels[p][o].r,convolved_image.pixels[p][o].g,convolved_image.pixels[p][o].b);
   				}
   			}
-  			// printf("\nblocked\n");
-			// printf("block\n");
+
 			for (r = i*x; r < convolved_image.height +(i*x); r++) {
 				// printf("\n");
 				for (c = j*y; c < convolved_image.width +(j*y); c++) {
@@ -428,6 +410,7 @@ int main (int argc, char **argv)
 				}
 			}				
 			#pragma omp barrier	
+			// TODO: free partial & convolved image
 
 		}
 	}
