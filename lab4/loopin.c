@@ -309,6 +309,7 @@ image convolve(image input_image, stencil_image stencil, int t_num ){
 
 int main (int argc, char **argv)
 {
+	omp_set_dynamic(0);     // Explicitly disable dynamic teams
 	struct pam inpam, outpam, instencil;
 	unsigned int row,column,plane;
 	unsigned int grand_total;
@@ -316,8 +317,12 @@ int main (int argc, char **argv)
 	stencil_image stencil;
 	int processors;
 	tuple * tuplerow;
-	int j,n,x,y,p,s_w,s_h,i = 0;
+	int j,n,n_x,n_y,x,y,p,p_x,p_y,s_w,s_h,root_p,i = 0;
 	// write the result
+
+	p = 10;
+	omp_set_num_threads(p);
+
 
 	FILE *fp = fopen("lenn.ppm", "r");
 	FILE *st = fopen("gauss.pgm", "r");
@@ -331,8 +336,8 @@ int main (int argc, char **argv)
 	outpam = inpam;
 	tuplerow = pnm_allocpamrow(&inpam);
 
-	p = 4;
-	n = inpam.height;
+	n_x = inpam.height;
+	n_y = inpam.width;
 	s_w = instencil.width;
 	s_h = instencil.height;
 	// processors = atio(argv[1]);
@@ -349,27 +354,30 @@ int main (int argc, char **argv)
 	result.height = inpam.height;
 	result.pixels = allocate_pixels(inpam.height, inpam.width);
 
-	x = (int)(n/sqrt(p));
-	y = (int)(n/sqrt(p));
-	int x_limit = n/x;
-	int y_limit = n/y;
+	root_p = sqrt(p);
+	p_x = root_p - (p%(root_p * root_p)); // to make sure integers p_x * p_y = p 
+	p_y = p/p_x;
+	x = (int)(n_x/p_x);
+	y = (int)(n_y/p_y);
+	printf("x %d y %d\n", x, y);
+	int x_limit = n_x/x;
+	int y_limit = n_y/y;
+	printf("x_limit %d y_limit %d\n", x_limit, y_limit);
 
 	image partial_image,convolved_image;
-	char result_p[2][2];
-	omp_set_num_threads(4);
 	int n_iter = 1;
-	#pragma omp parallel private(i,j,partial_image,convolved_image) shared(result,input_image,x,y,n_iter)
+	#pragma omp parallel private(i,j,partial_image,convolved_image) shared(result,input_image,x,y,n_iter,x_limit,y_limit)
 	{
 		int l;
 		for(l=0;l<n_iter;l++){
 			int pid = omp_get_thread_num();
-			i = pid/x_limit;
+			i = pid/y_limit;
 			j = pid%y_limit;
   			int t_x = i*(x ) ;
   			int t_y = j*(y );
 			int r,c,p,o;
 
-  			printf ("hello there, I am thread %d and i is %d and j is %d\n", omp_get_thread_num(),i,j);
+  			printf ("hello there, I am thread %d %d %d and i is %d %d and j is %d %d\n", pid,y_limit,x_limit,pid/y_limit,i,pid%y_limit,j);
   			
   			// get submatrix
   			partial_image = get_submatrix(input_image, t_x, t_y, x + s_h - 1 , y + s_w - 1,&instencil);
@@ -380,13 +388,7 @@ int main (int argc, char **argv)
   			// update the result buffer
   			printf("convolved for (%d ,%d), block size %d x %d, output %d x %d\n", t_x, t_y, x + s_h - 1 , y + s_w - 1, convolved_image.width, convolved_image.height);
 			printf("writing results to %d, %d of size %d x %d\n", i*x, j*y , convolved_image.height, convolved_image.width);
-				// printf("\n");
-  			for(p=0;p<convolved_image.height;p++){
-  				// printf("\n");
-  				for(o=0;o<convolved_image.width;o++){
-  					// printf("(%d %d %d)", convolved_image.pixels[p][o].r,convolved_image.pixels[p][o].g,convolved_image.pixels[p][o].b);
-  				}
-  			}
+
 
 			for (r = i*x; r < convolved_image.height +(i*x); r++) {
 				// printf("\n");
