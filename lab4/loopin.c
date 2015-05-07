@@ -4,12 +4,14 @@
 #include <math.h>
 #include <netpbm/pam.h>
 
+// structure to store a pixel
 typedef struct pixel{
 	int r;
 	int g;
 	int b;
 }pix;
 
+// structure to store image
 typedef struct image_struct
 {
 	/* data */
@@ -18,6 +20,7 @@ typedef struct image_struct
 	int height;
 }image;
 
+// structure to store stencil
 typedef struct stencil_struct
 {
 	/* data */
@@ -26,6 +29,10 @@ typedef struct stencil_struct
 	int height;
 }stencil_image;
 
+/**
+allocate memory for 2D array of struct pixels 
+for a given width and height
+**/
 pix **allocate_pixels(int height,int width){
 	pix **pixels;
 	int i,j;
@@ -37,6 +44,11 @@ pix **allocate_pixels(int height,int width){
     return pixels;
 }
 
+
+/**
+allocate memory for 2D array of struct pixels 
+for a given width and height
+**/
 double **allocate_stencil_pixels(int height,int width){
 	double **pixels;
 	int i,j;
@@ -48,6 +60,10 @@ double **allocate_stencil_pixels(int height,int width){
     return pixels;
 }
 
+/**
+Given an input image and a stencil the function computes the size of the padding that
+we need to place around the borders of the image
+**/
 image pad_image(image input_image,struct pam *pam_stencil){
 	tuple *tuplerow;
 	int height = input_image.height + pam_stencil->height - 1;
@@ -64,15 +80,11 @@ image pad_image(image input_image,struct pam *pam_stencil){
 	padded_image.width = width;
 	padded_image.height = height;
 
-	// printf("image:%d x %d , stencil %d x %d , pad_width (%d,%d), pad_height (%d,%d)\n", nw,nh, pam_stencil->width,pam_stencil->height,pad_left,pad_right,pad_top,pad_bottom);
-
-	
     padded_image.pixels = allocate_pixels( height, width);
-    // printf("space allocated for image\n");
 
     // read in the image and load it into the array
 	for (i=0; i< height; i++){
-		// assign zero values if one of the padded rows
+		// assign zero values if one of the rows to be padded
     	if( i< pad_top || i>( height - 1 - pad_bottom ) ){
 	    	for(j=0;j< width;j++){
 	    		padded_image.pixels[i][j].r = 0;
@@ -82,7 +94,7 @@ image pad_image(image input_image,struct pam *pam_stencil){
 	    }
 	    else{
 	    	for(j=0;j< width;j++){
-	    		// asssign zero value if one of the padded columns
+	    		// asssign zero value if one of the columns to be padded
 	    		if( j< pad_left || j>( width - 1 - pad_right ) ){
 		    		padded_image.pixels[i][j].r = 0;
 		    		padded_image.pixels[i][j].g = 0;
@@ -98,6 +110,11 @@ image pad_image(image input_image,struct pam *pam_stencil){
     return padded_image;
 }
 
+
+/**
+given an input image it pads the image according to the stencil
+and returns the block starting at i,j of size size_x,size_y
+**/
 image get_submatrix(image mat,int i,int j,int size_x,int size_y,struct pam *stencil){
 	int x,y;
 	image part;
@@ -112,10 +129,12 @@ image get_submatrix(image mat,int i,int j,int size_x,int size_y,struct pam *sten
 			part.pixels[x-i][y-j] = padded_image.pixels[x][y];
 		}
 
-	// TODO: Free padded image
 	return part;
 }
 
+/**
+read image into a image struct containing value of pixels in a 2D array of pixel struct
+**/
 image read_color_image(struct pam *pam_image){
 	tuple *tuplerow;
 	int height = pam_image->height;
@@ -146,6 +165,108 @@ image read_color_image(struct pam *pam_image){
     // free tuple
     pnm_freepamrow(tuplerow);
     return input_image;
+}
+
+
+/**
+Read stencil into a stencil_image type struct containing value of stencil in 2D array
+**/
+stencil_image read_stencil(struct pam *pam_stencil){
+	tuple *tuplerow;
+	int height = pam_stencil->height;
+	int width = pam_stencil->width;
+	double maxval = pam_stencil->maxval;
+	int i,j;
+	stencil_image stencil;
+
+	stencil.height = height;
+	stencil.width = width;
+
+	// allocate tuplerow
+	tuplerow = pnm_allocpamrow(pam_stencil);
+
+
+	// allocate space for image -> 2d array of pix
+	stencil.pixels = allocate_stencil_pixels(height,width);
+
+    // read in the image and load it into the array
+	for (i=0; i< height; i++){
+    	// read row into tuple
+    	printf("\n");
+    	pnm_readpamrow(pam_stencil, tuplerow);
+    	for(j=0;j< width;j++){
+    		stencil.pixels[i][j] = -4 + (8 * (double)tuplerow[j][0])/(maxval - 1);
+    		printf("%f,%f ", stencil.pixels[i][j],(double)tuplerow[j][0]);
+    	}
+    }
+
+    // free tuple
+    pnm_freepamrow(tuplerow);
+    
+    return stencil;
+}
+
+
+/**
+Returns value obtained by convoluting pixel at position i,j in image matrix mat
+**/
+pix convolve_pixel(image mat, stencil_image stencil, int i,int j){
+	int x,y;
+	pix value;
+	double temp_r = 0;
+	double temp_g = 0;
+	double temp_b = 0;
+	double sum = 0;
+	for(x=i;x< (i + stencil.height) ;x++)
+		for(y=j;y< (j + stencil.width) ;y++){
+			temp_r += (mat.pixels[x][y].r * stencil.pixels[x-i][y-j]);
+			temp_g += (mat.pixels[x][y].g * stencil.pixels[x-i][y-j]);
+			temp_b += (mat.pixels[x][y].b * stencil.pixels[x-i][y-j]);
+
+			sum+= stencil.pixels[x-i][y-j];
+		}	
+
+	value.r = temp_r/sum;
+	value.g = temp_g/sum;
+	value.b = temp_b/sum;
+	return value;
+}
+
+/**
+Returns value obtained by convoluting input image with the stencil
+**/
+image convolve(image input_image, stencil_image stencil, int t_num ){
+	int i,j;
+	int width = input_image.width;
+	int height = input_image.height;
+	int pad_top = floor((double)(stencil.height - 1)/2);
+	int pad_bottom = ceil((double)(stencil.height - 1)/2);
+	int pad_left = floor((double)(stencil.width - 1)/2);
+	int pad_right = ceil((double)(stencil.width - 1)/2);
+	image result;
+	result.height = input_image.height - (stencil.height - 1);
+	result.width = input_image.width - (stencil.width - 1);
+
+		// allocate space for image -> 2d array of pix
+	result.pixels = allocate_pixels(result.height,result.width);
+
+	printf("image to convolve %d x %d for thread %d\n",input_image.width,input_image.height, t_num);
+	printf("stencil to convolve %d x %d\n",stencil.width,stencil.height);
+
+	for (i=0; i< height; i++){
+		if( !( i< pad_top || i>( height - pad_bottom - 1 ) ) ){
+	    	for(j=0;j< width;j++){
+	    		// asssign zero value if one of the padded columns
+	    		if( !( j< pad_left || j>( width - pad_right - 1 ) ) ){
+	    			// do convolution
+	    			result.pixels[i- pad_top][j- pad_left] = convolve_pixel(input_image, stencil, i- pad_top, j- pad_left );
+		    	}
+	    	}
+	    }
+    }
+    // save convolved image
+    return result;
+
 }
 
 
@@ -209,99 +330,6 @@ image read_and_pad_image(struct pam *pam_image, struct pam *pam_stencil){
     return input_image;
 }
 
-
-stencil_image read_stencil(struct pam *pam_stencil){
-	tuple *tuplerow;
-	int height = pam_stencil->height;
-	int width = pam_stencil->width;
-	double maxval = pam_stencil->maxval;
-	int i,j;
-	stencil_image stencil;
-
-	stencil.height = height;
-	stencil.width = width;
-
-	// allocate tuplerow
-	tuplerow = pnm_allocpamrow(pam_stencil);
-
-
-	// allocate space for image -> 2d array of pix
-	stencil.pixels = allocate_stencil_pixels(height,width);
-
-    // read in the image and load it into the array
-	for (i=0; i< height; i++){
-    	// read row into tuple
-    	printf("\n");
-    	pnm_readpamrow(pam_stencil, tuplerow);
-    	for(j=0;j< width;j++){
-    		stencil.pixels[i][j] = -4 + (8 * (double)tuplerow[j][0])/(maxval - 1);
-    		printf("%f,%f ", stencil.pixels[i][j],(double)tuplerow[j][0]);
-    	}
-    }
-
-    // free tuple
-    pnm_freepamrow(tuplerow);
-    
-    return stencil;
-}
-
-pix convolve_pixel(image mat, stencil_image stencil, int i,int j){
-	int x,y;
-	pix value;
-	double temp_r = 0;
-	double temp_g = 0;
-	double temp_b = 0;
-	double sum = 0;
-	for(x=i;x< (i + stencil.height) ;x++)
-		for(y=j;y< (j + stencil.width) ;y++){
-			temp_r += (mat.pixels[x][y].r * stencil.pixels[x-i][y-j]);
-			temp_g += (mat.pixels[x][y].g * stencil.pixels[x-i][y-j]);
-			temp_b += (mat.pixels[x][y].b * stencil.pixels[x-i][y-j]);
-
-			sum+= stencil.pixels[x-i][y-j];
-		}	
-
-	value.r = temp_r/sum;
-	value.g = temp_g/sum;
-	value.b = temp_b/sum;
-	return value;
-}
-
-image convolve(image input_image, stencil_image stencil, int t_num ){
-	int i,j;
-	int width = input_image.width;
-	int height = input_image.height;
-	int pad_top = floor((double)(stencil.height - 1)/2);
-	int pad_bottom = ceil((double)(stencil.height - 1)/2);
-	int pad_left = floor((double)(stencil.width - 1)/2);
-	int pad_right = ceil((double)(stencil.width - 1)/2);
-	image result;
-	result.height = input_image.height - (stencil.height - 1);
-	result.width = input_image.width - (stencil.width - 1);
-
-		// allocate space for image -> 2d array of pix
-	result.pixels = allocate_pixels(result.height,result.width);
-
-	printf("image to convolve %d x %d for thread %d\n",input_image.width,input_image.height, t_num);
-	printf("stencil to convolve %d x %d\n",stencil.width,stencil.height);
-
-	for (i=0; i< height; i++){
-		if( !( i< pad_top || i>( height - pad_bottom - 1 ) ) ){
-	    	for(j=0;j< width;j++){
-	    		// asssign zero value if one of the padded columns
-	    		if( !( j< pad_left || j>( width - pad_right - 1 ) ) ){
-	    			// do convolution
-	    			result.pixels[i- pad_top][j- pad_left] = convolve_pixel(input_image, stencil, i- pad_top, j- pad_left );
-//	    			result.pixels[i- pad_top][j- pad_left] = input_image.pixels[i][j];
-		    	}
-	    	}
-	    }
-    }
-    // save convolved image
-    return result;
-
-}
-
 int main (int argc, char **argv)
 {
 	omp_set_dynamic(0);     // Explicitly disable dynamic teams
@@ -315,46 +343,51 @@ int main (int argc, char **argv)
 	int j,n,n_x,n_y,x,y,p,p_x,p_y,s_w,s_h,x_remainder,y_remainder,root_p,i = 0;
 	// write the result
 
-	p = 8;
+	p = 8; // number of processors
+	// processors = atio(argv[1]);
 	omp_set_num_threads(p);
 
 
-	FILE *fp = fopen("lencut.ppm", "r");
-	FILE *st = fopen("gauss.pgm", "r");
+	FILE *fp = fopen("lencut.ppm", "r"); // open the input image file in ppm format
+	FILE *st = fopen("gauss.pgm", "r"); // open the stencil image file in ppm format
 	
 
-	pm_init(argv[0], 0);
+	pm_init(argv[0], 0); 
 
-	pnm_readpaminit(fp, &inpam, PAM_STRUCT_SIZE(tuple_type));
-	pnm_readpaminit(st, &instencil, PAM_STRUCT_SIZE(tuple_type));
+	pnm_readpaminit(fp, &inpam, PAM_STRUCT_SIZE(tuple_type)); // read the input image in inpam structure
+	pnm_readpaminit(st, &instencil, PAM_STRUCT_SIZE(tuple_type)); // read the stencil in instencil structure
 	
 	outpam = inpam;
 	tuplerow = pnm_allocpamrow(&inpam);
 
-	n_x = inpam.height;
-	n_y = inpam.width;
-	s_w = instencil.width;
-	s_h = instencil.height;
-	// processors = atio(argv[1]);
+	n_x = inpam.height; // input image height
+	n_y = inpam.width; // input image width
+	s_w = instencil.width; // stencil width
+	s_h = instencil.height; // stencil height
 
-	// read stencil into a 2d array
+	// read stencil into a stencil_image type struct containing value of stencil in 2D array
 	printf("load stencil into matrix\n");
 	stencil = read_stencil(&instencil);
 
-	// read image into a 2d array with padding according to the stencil length
+	// read image into a image struct containing value of pixels in a 2D array of pixel struct
 	printf("reading image\n");
 	input_image = read_color_image(&inpam); 
 
+	// Initialize an empty result image equal to the size of the input image
 	result.width = inpam.width;
 	result.height = inpam.height;
 	result.pixels = allocate_pixels(inpam.height, inpam.width);
 
-	root_p = sqrt(p);
-	p_x = root_p - (p%(root_p * root_p)); // to make sure integers p_x * p_y = p 
+	root_p = sqrt(p); // square root of number of processors
+	/** 
+	We want to arrange processors in a grid of size p_x X p_y 
+	Ideally it's root_p X root_p, but to handle the cases when root_p is not an integer we do this
+	**/
+	p_x = root_p - (p%(root_p * root_p)); // to make sure integers p_x * p_y = p when p isn't a perfect square
 	p_y = p/p_x;
-	x = (int)(n_x/p_x);
-	x_remainder = n_x%p_x;
-	y = (int)(n_y/p_y);
+	x = (int)(n_x/p_x); // Height of the cut out chunk
+	x_remainder = n_x%p_x; // handle cases where the image size cannot be equally divided into chunks
+	y = (int)(n_y/p_y); // Width of the cut out chunk
 	y_remainder = n_y%p_y;
 	printf("x %d y %d\n", x, y);
 	int x_limit = n_x/x;
@@ -362,7 +395,7 @@ int main (int argc, char **argv)
 	printf("x_limit %d y_limit %d\n", x_limit, y_limit);
 
 	image partial_image,convolved_image;
-	int n_iter = 1;
+	int n_iter = 5; // number of iterations
 	#pragma omp parallel private(i,j,partial_image,convolved_image) shared(result,input_image,x,y,n_iter,x_limit,y_limit)
 	{
 		int l;
@@ -373,24 +406,24 @@ int main (int argc, char **argv)
 			j = pid%y_limit;
 			t_x = i*(x ) ;
   			t_y = j*(y );
-			size_x = x + (i == (x_limit -1))*x_remainder;
+  			/**
+  			calculate size of the chunk for this processor
+  			add the remainder to the processors handling chunks at border  
+  			**/
+			size_x = x + (i == (x_limit -1))*x_remainder; 
 			size_y = y + (j == (y_limit -1))*y_remainder;
 
-  			printf ("hello there, I am thread %d and i is %d and j is %d requesting submatrix %d x %d\n", pid,i,j,size_y,size_x);
-  			
-  			// get submatrix
+  			// get chunk of the image to convole on
   			partial_image = get_submatrix(input_image, t_x, t_y, size_x + s_h - 1 , size_y + s_w - 1,&instencil);
-  			// convolve
+  			// do convolution
   			convolved_image = convolve(partial_image,stencil,omp_get_thread_num());
-  			printf("convolved image\n");
+  			// printf("convolved image\n");
+
+  			// printf("convolved for (%d ,%d), block size %d x %d, output %d x %d\n", t_x, t_y, size_x + s_h - 1 , size_y + s_w - 1, convolved_image.width, convolved_image.height);
+			// printf("writing results to %d, %d of size %d x %d\n", i*x, j*y , convolved_image.height, convolved_image.width);
 
   			// update the result buffer
-  			printf("convolved for (%d ,%d), block size %d x %d, output %d x %d\n", t_x, t_y, size_x + s_h - 1 , size_y + s_w - 1, convolved_image.width, convolved_image.height);
-			printf("writing results to %d, %d of size %d x %d\n", i*x, j*y , convolved_image.height, convolved_image.width);
-
-
 			for (r = i*x; r < convolved_image.height +(i*x); r++) {
-				// printf("\n");
 				for (c = j*y; c < convolved_image.width +(j*y); c++) {
 					result.pixels[r][c].r = convolved_image.pixels[r - (i*x)][c - (j*y)].r;
 					result.pixels[r][c].g = convolved_image.pixels[r - (i*x)][c - (j*y)].g;
@@ -398,9 +431,10 @@ int main (int argc, char **argv)
 				}
 			}
 		
-			// make sure every processor computed result
-			// copy result back to image
+			// make sure every processor has computed the result
 			#pragma omp barrier	
+			// copy result back to the input image
+			// so that changes can be read for next iteration
 			for (r = i*x; r < convolved_image.height +(i*x); r++) {
 				for (c = j*y; c < convolved_image.width +(j*y); c++) {
 						input_image.pixels[r][c].r = result.pixels[r][c].r;
@@ -409,7 +443,6 @@ int main (int argc, char **argv)
 				}
 			}				
 			#pragma omp barrier	
-			// TODO: free partial & convolved image
 
 		}
 	}
