@@ -4,6 +4,10 @@
 #include <math.h>
 #include <netpbm/pam.h>
 
+char *OUTPUT_FILE = "lennaout.ppm";
+char *INPUT_FILE = "lenn.ppm";
+char *STENCIL_FILE = "gauss.pgm";
+
 // structure to store a pixel
 typedef struct pixel{
 	int r;
@@ -148,7 +152,7 @@ image read_color_image(struct pam *pam_image){
 	// allocate tuplerow
 	tuplerow = pnm_allocpamrow(pam_image);
 
-    printf("space allocated for image\n");
+    // printf("space allocated for image\n");
     input_image.pixels = allocate_pixels( height, width);
 
     // read in the image and load it into the array
@@ -192,11 +196,11 @@ stencil_image read_stencil(struct pam *pam_stencil){
     // read in the image and load it into the array
 	for (i=0; i< height; i++){
     	// read row into tuple
-    	printf("\n");
+    	// printf("\n");
     	pnm_readpamrow(pam_stencil, tuplerow);
     	for(j=0;j< width;j++){
     		stencil.pixels[i][j] = -4 + (8 * (double)tuplerow[j][0])/(maxval - 1);
-    		printf("%f,%f ", stencil.pixels[i][j],(double)tuplerow[j][0]);
+    		// printf("%f,%f ", stencil.pixels[i][j],(double)tuplerow[j][0]);
     	}
     }
 
@@ -250,8 +254,8 @@ image convolve(image input_image, stencil_image stencil, int t_num ){
 		// allocate space for image -> 2d array of pix
 	result.pixels = allocate_pixels(result.height,result.width);
 
-	printf("image to convolve %d x %d for thread %d\n",input_image.width,input_image.height, t_num);
-	printf("stencil to convolve %d x %d\n",stencil.width,stencil.height);
+	// printf("image to convolve %d x %d for thread %d\n",input_image.width,input_image.height, t_num);
+	// printf("stencil to convolve %d x %d\n",stencil.width,stencil.height);
 
 	for (i=0; i< height; i++){
 		if( !( i< pad_top || i>( height - pad_bottom - 1 ) ) ){
@@ -341,15 +345,17 @@ int main (int argc, char **argv)
 	int processors;
 	tuple * tuplerow;
 	int j,n,n_x,n_y,x,y,p,p_x,p_y,s_w,s_h,x_remainder,y_remainder,root_p,i = 0;
+	int n_iter = atoi(argv[2]); // number of iterations
+
 	// write the result
 
-	p = 8; // number of processors
+	p = atoi(argv[1]); // number of processors
 	// processors = atio(argv[1]);
 	omp_set_num_threads(p);
 
 
-	FILE *fp = fopen("lencut.ppm", "r"); // open the input image file in ppm format
-	FILE *st = fopen("gauss.pgm", "r"); // open the stencil image file in ppm format
+	FILE *fp = fopen(INPUT_FILE, "r"); // open the input image file in ppm format
+	FILE *st = fopen(STENCIL_FILE, "r"); // open the stencil image file in ppm format
 	
 
 	pm_init(argv[0], 0); 
@@ -389,13 +395,12 @@ int main (int argc, char **argv)
 	x_remainder = n_x%p_x; // handle cases where the image size cannot be equally divided into chunks
 	y = (int)(n_y/p_y); // Width of the cut out chunk
 	y_remainder = n_y%p_y;
-	printf("x %d y %d\n", x, y);
+	// printf("x %d y %d\n", x, y);
 	int x_limit = n_x/x;
 	int y_limit = n_y/y;
-	printf("x_limit %d y_limit %d\n", x_limit, y_limit);
+	// printf("x_limit %d y_limit %d\n", x_limit, y_limit);
 
 	image partial_image,convolved_image;
-	int n_iter = 5; // number of iterations
 	#pragma omp parallel private(i,j,partial_image,convolved_image) shared(result,input_image,x,y,n_iter,x_limit,y_limit)
 	{
 		int l;
@@ -448,7 +453,7 @@ int main (int argc, char **argv)
 	}
 
 	
-	FILE *op = fopen("lennaout.ppm","w");
+	FILE *op = fopen(OUTPUT_FILE,"w");
 	outpam.file = op;    
 	pnm_writepaminit(&outpam);
 	printf("writing output\n");

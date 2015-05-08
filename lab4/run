@@ -1,6 +1,6 @@
 #!/bin/sh
 
 clear
-gcc-4.9 "$@" -lnetpbm -fopenmp -o ofile
-./ofile
+gcc-4.9 "$1" -lnetpbm -fopenmp -o ofile
+./ofile "$2" "$3"
 ppmtojpeg lennaout.ppm> lennaout.jpg
